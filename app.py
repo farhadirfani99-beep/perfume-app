@@ -149,6 +149,36 @@ def get_pick_locations(matched_name, qty_needed, df):
 
     return picks
 
+def brand_from_name(name):
+    n = str(name).lower()
+    if "dior" in n:
+        return "Dior"
+    if "chanel" in n:
+        return "Chanel"
+    if "ysl" in n or "yves saint laurent" in n:
+        return "YSL"
+    if "armani" in n:
+        return "Armani"
+    if "tom ford" in n:
+        return "Tom Ford"
+    if "bvlgari" in n:
+        return "Bvlgari"
+    if "versace" in n:
+        return "Versace"
+    if "givenchy" in n:
+        return "Givenchy"
+    if "creed" in n:
+        return "Creed"
+    if "paco rabanne" in n or "1 million" in n:
+        return "Paco Rabanne"
+    if "gucci" in n:
+        return "Gucci"
+    if "louis vuitton" in n or n.startswith("lv "):
+        return "Louis Vuitton"
+    if "mancera" in n:
+        return "Mancera"
+    return "Other"
+
 st.title("Perfume & Cologne Inventory + Pick Assistant")
 tab1, tab2, tab3 = st.tabs(["Pick Assistant", "Inventory Overview", "Add Stock"])
 
@@ -245,14 +275,57 @@ with tab1:
 
 with tab2:
     st.subheader("Current Inventory")
-    stock_filter = st.radio("Filter", ["All", "Packaged", "Unpackaged"], horizontal=True)
+
+    inventory_df["Brand"] = inventory_df["Standardized Full Name"].apply(brand_from_name)
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        stock_filter = st.selectbox("Stock type", ["All", "Packaged", "Unpackaged"])
+    with col2:
+        brand_filter = st.selectbox("Brand", ["All"] + sorted(inventory_df["Brand"].unique().tolist()))
+    with col3:
+        location_filter = st.selectbox("Location", ["All"] + sorted(inventory_df["Location"].unique().tolist()))
+
     view_df = inventory_df.copy()
 
     if stock_filter != "All":
         view_df = view_df[view_df["Stock Type"] == stock_filter]
+    if brand_filter != "All":
+        view_df = view_df[view_df["Brand"] == brand_filter]
+    if location_filter != "All":
+        view_df = view_df[view_df["Location"] == location_filter]
 
-    st.dataframe(view_df.sort_values(["Pick Priority", "Location"]), use_container_width=True)
-    st.metric("Total units in stock", int(inventory_df["Qty"].sum()))
+    total_units = int(view_df["Qty"].sum())
+    total_lines = len(view_df)
+    st.metric("Visible stock units", total_units)
+    st.caption(f"{total_lines} stock lines shown")
+
+    grouped = view_df.sort_values(["Pick Priority", "Location", "Brand", "Standardized Full Name"]).groupby("Location")
+
+    for location, group in grouped:
+        location_total = int(group["Qty"].sum())
+        packaged_count = int(group[group["Stock Type"] == "Packaged"]["Qty"].sum())
+        unpackaged_count = int(group[group["Stock Type"] == "Unpackaged"]["Qty"].sum())
+
+        with st.container(border=True):
+            st.markdown(f"### {location}")
+            st.caption(
+                f"Total units: {location_total} | Packaged: {packaged_count} | Unpackaged: {unpackaged_count}"
+            )
+
+            display_group = group[[
+                "Standardized Full Name",
+                "Brand",
+                "Qty",
+                "Stock Type",
+                "As Entered"
+            ]].rename(columns={
+                "Standardized Full Name": "Product",
+                "Qty": "Units",
+                "Stock Type": "Type"
+            })
+
+            st.dataframe(display_group, use_container_width=True, hide_index=True)
 
 with tab3:
     st.subheader("Add newly arrived stock")
@@ -288,7 +361,7 @@ with tab3:
             "Status": "Confirmed"
         }])
 
-        updated_df = pd.concat([inventory_df, new_row], ignore_index=True)
+        updated_df = pd.concat([inventory_df.drop(columns=["Brand"], errors="ignore"), new_row], ignore_index=True)
         save_inventory(updated_df)
 
         if new_name and suggestion:
