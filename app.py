@@ -60,8 +60,10 @@ def load_inventory():
 
 def save_inventory(df):
     if sb:
+        rows = df.to_dict(orient="records")
         sb.table("inventory").delete().neq("id", -1).execute()
-        sb.table("inventory").insert(df.to_dict(orient="records")).execute()
+        if rows:
+            sb.table("inventory").insert(rows).execute()
     else:
         df.to_csv("inventory_master_final.csv", index=False)
 
@@ -79,7 +81,7 @@ def save_alias(alias, canonical_name):
         sb.table("aliases").upsert({"alias": alias, "canonical_name": canonical_name}).execute()
 
 def normalize_text(text):
-    text = text.lower().strip()
+    text = str(text).lower().strip()
     text = text.replace("’", "'")
     text = re.sub(r"[^a-z0-9' ]+", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
@@ -121,6 +123,7 @@ def get_pick_locations(matched_name, qty_needed, df):
     candidates = df[df["Standardized Full Name"] == matched_name].copy()
     candidates = candidates.sort_values(["Pick Priority", "Location"])
     picks, remaining = [], qty_needed
+
     for _, row in candidates.iterrows():
         if remaining <= 0:
             break
@@ -128,10 +131,22 @@ def get_pick_locations(matched_name, qty_needed, df):
         if available <= 0:
             continue
         take = min(remaining, available)
-        picks.append(f"{row['Location']} (take {take}, {row['Stock Type']})")
+        picks.append({
+            "location": row["Location"],
+            "take": take,
+            "stock_type": row["Stock Type"],
+            "name": matched_name
+        })
         remaining -= take
+
     if remaining > 0:
-        picks.append(f"SHORTAGE: {remaining} units unavailable")
+        picks.append({
+            "location": None,
+            "take": remaining,
+            "stock_type": "SHORTAGE",
+            "name": matched_name
+        })
+
     return picks
 
 st.title("Perfume & Cologne Inventory + Pick Assistant")
@@ -150,6 +165,7 @@ with tab1:
         lines = [l.strip() for l in raw_text.split("\n") if l.strip()]
         results = []
         not_found = []
+        pick_plan = []
 
         for line in lines:
             m = re.match(r"(.+?)\s*[-–—]\s*(\d+)\s*unit", line, re.IGNORECASE)
@@ -158,6 +174,7 @@ with tab1:
             if not m:
                 not_found.append(f"Could not read line format: {line}")
                 continue
+
             name, qty = m.group(1).strip(), int(m.group(2))
             recip_m = re.search(r"\((.+?)\)", line)
             recipients = recip_m.group(1) if recip_m else ""
@@ -168,13 +185,26 @@ with tab1:
                 continue
 
             picks = get_pick_locations(matched, qty, inventory_df)
+            pick_plan.append({
+                "requested": name,
+                "matched": matched,
+                "qty": qty,
+                "picks": picks
+            })
+
+            pick_from_text = "; ".join([
+                f"{p['location']} (take {p['take']}, {p['stock_type']})"
+                if p["location"] else f"SHORTAGE: {p['take']} units unavailable"
+                for p in picks
+            ])
+
             results.append({
                 "Requested": name,
                 "Matched To": matched,
                 "Match Method": method,
                 "Qty": qty,
                 "Recipients": recipients,
-                "Pick From": "; ".join(picks)
+                "Pick From": pick_from_text
             })
 
         if results:
@@ -186,12 +216,41 @@ with tab1:
             for item in not_found:
                 st.write(f"- {item}")
 
+        if results:
+            st.divider()
+            if st.button("Confirm picks and deduct inventory"):
+                updated = inventory_df.copy()
+
+                for item in pick_plan:
+                    for p in item["picks"]:
+                        if p["location"] is None:
+                            continue
+
+                        mask = (
+                            (updated["Standardized Full Name"] == item["matched"]) &
+                            (updated["Location"] == p["location"])
+                        )
+                        idxs = updated.index[mask].tolist()
+
+                        if idxs:
+                            i = idxs[0]
+                            updated.at[i, "Qty"] = max(
+                                0,
+                                int(updated.at[i, "Qty"]) - int(p["take"])
+                            )
+
+                save_inventory(updated)
+                st.success("Inventory updated from confirmed picks.")
+                st.rerun()
+
 with tab2:
     st.subheader("Current Inventory")
     stock_filter = st.radio("Filter", ["All", "Packaged", "Unpackaged"], horizontal=True)
     view_df = inventory_df.copy()
+
     if stock_filter != "All":
         view_df = view_df[view_df["Stock Type"] == stock_filter]
+
     st.dataframe(view_df.sort_values(["Pick Priority", "Location"]), use_container_width=True)
     st.metric("Total units in stock", int(inventory_df["Qty"].sum()))
 
@@ -204,16 +263,20 @@ with tab3:
 
     suggestion, method = (None, None)
     confirm_match = False
+
     if new_name:
         suggestion, method = match_item(new_name, aliases, inv_names)
         if suggestion:
             st.info(f"This looks like an existing product: **{suggestion}** (match: {method})")
-            confirm_match = st.checkbox(f"Yes, add to existing '{suggestion}' instead of creating a new product")
+            confirm_match = st.checkbox(
+                f"Yes, add to existing '{suggestion}' instead of creating a new product"
+            )
         else:
             st.warning("No close match found — this will be added as a brand new product.")
 
     if st.button("Add Stock"):
         final_name = suggestion if (new_name and suggestion and confirm_match) else new_name
+
         new_row = pd.DataFrame([{
             "Location": new_location,
             "As Entered": new_name,
@@ -224,9 +287,12 @@ with tab3:
             "Pick Priority": 1 if new_type == "Packaged" else 2,
             "Status": "Confirmed"
         }])
+
         updated_df = pd.concat([inventory_df, new_row], ignore_index=True)
         save_inventory(updated_df)
+
         if new_name and suggestion:
             save_alias(new_name, suggestion)
+
         st.success(f"Added {new_qty} unit(s) of '{final_name}' to {new_location}")
         st.rerun()
