@@ -269,7 +269,7 @@ with tab1:
                                 int(updated.at[i, "Qty"]) - int(p["take"])
                             )
 
-                save_inventory(updated)
+                save_inventory(updated.drop(columns=["Brand"], errors="ignore"))
                 st.success("Inventory updated from confirmed picks.")
                 st.rerun()
 
@@ -327,6 +327,53 @@ with tab2:
 
             st.dataframe(display_group, use_container_width=True, hide_index=True)
 
+    st.divider()
+    st.subheader("Edit or Delete Inventory Item")
+
+    inventory_df = inventory_df.reset_index(drop=True)
+    inventory_df["Edit Label"] = inventory_df.apply(
+        lambda r: f"{r['Location']} | {r['Standardized Full Name']} | {r['Qty']} units",
+        axis=1
+    )
+
+    selected_label = st.selectbox("Select item to edit", inventory_df["Edit Label"].tolist())
+
+    selected_row = inventory_df[inventory_df["Edit Label"] == selected_label].iloc[0]
+    selected_index = selected_row.name
+
+    edit_location = st.text_input("Location", value=str(selected_row["Location"]))
+    edit_as_entered = st.text_input("As Entered", value=str(selected_row["As Entered"]))
+    edit_full_name = st.text_input("Standardized Full Name", value=str(selected_row["Standardized Full Name"]))
+    edit_qty = st.number_input("Quantity", min_value=0, step=1, value=int(selected_row["Qty"]))
+    edit_stock_type = st.selectbox(
+        "Stock Type",
+        ["Packaged", "Unpackaged"],
+        index=0 if str(selected_row["Stock Type"]) == "Packaged" else 1
+    )
+
+    col_save, col_delete = st.columns(2)
+
+    with col_save:
+        if st.button("Save Changes"):
+            updated = inventory_df.drop(columns=["Edit Label", "Brand"], errors="ignore").copy()
+            updated.at[selected_index, "Location"] = edit_location
+            updated.at[selected_index, "As Entered"] = edit_as_entered
+            updated.at[selected_index, "Standardized Full Name"] = edit_full_name
+            updated.at[selected_index, "Qty"] = int(edit_qty)
+            updated.at[selected_index, "Stock Type"] = edit_stock_type
+            updated.at[selected_index, "Pick Priority"] = 1 if edit_stock_type == "Packaged" else 2
+            save_inventory(updated)
+            st.success("Inventory item updated.")
+            st.rerun()
+
+    with col_delete:
+        if st.button("Delete Item"):
+            updated = inventory_df.drop(columns=["Edit Label", "Brand"], errors="ignore").copy()
+            updated = updated.drop(index=selected_index).reset_index(drop=True)
+            save_inventory(updated)
+            st.success("Inventory item deleted.")
+            st.rerun()
+
 with tab3:
     st.subheader("Add newly arrived stock")
     new_name = st.text_input("Product name (as written on box/invoice)")
@@ -361,7 +408,7 @@ with tab3:
             "Status": "Confirmed"
         }])
 
-        updated_df = pd.concat([inventory_df.drop(columns=["Brand"], errors="ignore"), new_row], ignore_index=True)
+        updated_df = pd.concat([inventory_df.drop(columns=["Brand", "Edit Label"], errors="ignore"), new_row], ignore_index=True)
         save_inventory(updated_df)
 
         if new_name and suggestion:
