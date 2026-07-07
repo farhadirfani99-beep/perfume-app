@@ -304,7 +304,8 @@ with tab1:
 
                 save_inventory(updated.drop(columns=["Brand"], errors="ignore"))
                 st.success("Inventory updated from confirmed picks.")
-                st.rerun()with tab2:
+                st.rerun()
+                with tab2:
     st.subheader("Current Inventory")
 
     inventory_df["Brand"] = inventory_df["Standardized Full Name"].apply(brand_from_name)
