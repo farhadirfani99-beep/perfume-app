@@ -10,79 +10,14 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.units import mm as mm_unit
 from pypdf import PdfWriter, PdfReader
 
+SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
+SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "")
+
 RECEIPT_WIDTH_MM = 80
 RECEIPT_WIDTH_PT = RECEIPT_WIDTH_MM * mm_unit
 LINE_HEIGHT = 12
 FONT_SIZE = 9
 MARGIN = 10
-
-def extract_docx_lines(docx_bytes):
-    doc = Document(io.BytesIO(docx_bytes))
-    lines = []
-    for para in doc.paragraphs:
-        text = para.text.strip()
-        if text:
-            lines.append(text)
-    return lines
-
-def build_receipt_pdf_bytes(lines):
-    height_pt = MARGIN * 2 + LINE_HEIGHT * (len(lines) + 2)
-    buf = io.BytesIO()
-    c = canvas.Canvas(buf, pagesize=(RECEIPT_WIDTH_PT, height_pt))
-    c.setFont("Helvetica", FONT_SIZE)
-    y = height_pt - MARGIN - LINE_HEIGHT
-    for line in lines:
-        c.drawString(MARGIN, y, line[:60])
-        y -= LINE_HEIGHT
-    c.showPage()
-    c.save()
-    buf.seek(0)
-    return buf.read(), height_pt
-
-def get_receipt_bytes(product_name):
-    if not sb:
-        return None
-    res = sb.table("receipts").select("*").eq("product_name", product_name).execute()
-    if not res.data:
-        return None
-    return base64.b64decode(res.data[0]["file_base64"])
-
-def generate_receipt_pdf_for_picks(pick_plan, inventory_df):
-    output_writer = PdfWriter()
-    missing = []
-    included = []
-
-    for item in pick_plan:
-        matched_name = item["matched"]
-        row_match = inventory_df[inventory_df["Standardized Full Name"] == matched_name]
-        if row_match.empty:
-            continue
-        stock_type = row_match.iloc[0]["Stock Type"]
-        if stock_type != "Unpackaged":
-            continue
-
-        docx_bytes = get_receipt_bytes(matched_name)
-        if not docx_bytes:
-            missing.append(matched_name)
-            continue
-
-        lines = extract_docx_lines(docx_bytes)
-        pdf_bytes, _ = build_receipt_pdf_bytes(lines)
-        reader = PdfReader(io.BytesIO(pdf_bytes))
-
-        copies_needed = int(item["qty"])
-        for _ in range(copies_needed):
-            for page in reader.pages:
-                output_writer.add_page(page)
-
-        included.append(f"{matched_name} x{copies_needed}")
-
-    buf = io.BytesIO()
-    output_writer.write(buf)
-    return buf.getvalue(), missing, included
-    
-SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
-SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "")
 
 DEFAULT_ALIASES = {
     "sauvage elixir": "Dior Sauvage",
@@ -237,6 +172,71 @@ def brand_from_name(name):
         return "Mancera"
     return "Other"
 
+def extract_docx_lines(docx_bytes):
+    doc = Document(io.BytesIO(docx_bytes))
+    lines = []
+    for para in doc.paragraphs:
+        text = para.text.strip()
+        if text:
+            lines.append(text)
+    return lines
+
+def build_receipt_pdf_bytes(lines):
+    height_pt = MARGIN * 2 + LINE_HEIGHT * (len(lines) + 2)
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=(RECEIPT_WIDTH_PT, height_pt))
+    c.setFont("Helvetica", FONT_SIZE)
+    y = height_pt - MARGIN - LINE_HEIGHT
+    for line in lines:
+        c.drawString(MARGIN, y, line[:60])
+        y -= LINE_HEIGHT
+    c.showPage()
+    c.save()
+    buf.seek(0)
+    return buf.read(), height_pt
+
+def get_receipt_bytes(product_name):
+    if not sb:
+        return None
+    res = sb.table("receipts").select("*").eq("product_name", product_name).execute()
+    if not res.data:
+        return None
+    return base64.b64decode(res.data[0]["file_base64"])
+
+def generate_receipt_pdf_for_picks(pick_plan, inventory_df):
+    output_writer = PdfWriter()
+    missing = []
+    included = []
+
+    for item in pick_plan:
+        matched_name = item["matched"]
+        row_match = inventory_df[inventory_df["Standardized Full Name"] == matched_name]
+        if row_match.empty:
+            continue
+        stock_type = row_match.iloc[0]["Stock Type"]
+        if stock_type != "Unpackaged":
+            continue
+
+        docx_bytes = get_receipt_bytes(matched_name)
+        if not docx_bytes:
+            missing.append(matched_name)
+            continue
+
+        lines = extract_docx_lines(docx_bytes)
+        pdf_bytes, _ = build_receipt_pdf_bytes(lines)
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+
+        copies_needed = int(item["qty"])
+        for _ in range(copies_needed):
+            for page in reader.pages:
+                output_writer.add_page(page)
+
+        included.append(f"{matched_name} x{copies_needed}")
+
+    buf = io.BytesIO()
+    output_writer.write(buf)
+    return buf.getvalue(), missing, included
+
 st.title("Perfume & Cologne Inventory + Pick Assistant")
 tab1, tab2, tab3, tab4 = st.tabs(["Pick Assistant", "Inventory Overview", "Add Stock", "Receipt Directory"])
 
@@ -247,8 +247,8 @@ inv_names = inventory_df["Standardized Full Name"].dropna().astype(str).unique()
 with tab1:
     st.subheader("Paste your pick list below")
     st.caption(
-        "Domestic orders: one item per line, e.g. \"Coco Mademoiselle - 2 units (Rojas, Tiffen)\". "
-        "International orders: paste after a blank line, e.g. \"Sauvage Elixir 1 unit\" (no dash or recipients needed)."
+        "Domestic orders: one item per line, e.g. Coco Mademoiselle - 2 units (Rojas, Tiffen). "
+        "International orders: paste after a blank line, e.g. Sauvage Elixir 1 unit (no dash or recipients needed)."
     )
     raw_text = st.text_area("Pick list", height=300)
 
@@ -306,42 +306,73 @@ with tab1:
                     "Pick From": pick_from_text
                 })
 
-        if results:
-            st.success(f"{len(results)} item(s) matched and ready to pick")
-            domestic_results = [r for r in results if r["Order Type"] == "Domestic"]
-            international_results = [r for r in results if r["Order Type"] == "International"]
-            if domestic_results:
-                st.markdown("#### Domestic Orders")
-                st.dataframe(pd.DataFrame(domestic_results), use_container_width=True, hide_index=True)
-            if international_results:
-                st.markdown("#### International Orders")
-                st.dataframe(pd.DataFrame(international_results), use_container_width=True, hide_index=True)
+        st.session_state["pick_plan"] = pick_plan
+        st.session_state["pick_results"] = results
+        st.session_state["pick_not_found"] = not_found
 
-        if not_found:
-            st.warning("Could not find the following in inventory — please check manually:")
-            for item in not_found:
-                st.write(f"- {item}")
+    pick_plan = st.session_state.get("pick_plan", [])
+    results = st.session_state.get("pick_results", [])
+    not_found = st.session_state.get("pick_not_found", [])
 
-        if results:
-            st.divider()
-            if st.button("Confirm picks and deduct inventory"):
-                updated = inventory_df.copy()
-                for item in pick_plan:
-                    for p in item["picks"]:
-                        if p["location"] is None:
-                            continue
-                        mask = (
-                            (updated["Standardized Full Name"] == item["matched"]) &
-                            (updated["Location"] == p["location"])
-                        )
-                        idxs = updated.index[mask].tolist()
-                        if idxs:
-                            i = idxs[0]
-                            updated.at[i, "Qty"] = max(0, int(updated.at[i, "Qty"]) - int(p["take"]))
-                save_inventory(updated.drop(columns=["Brand"], errors="ignore"))
-                st.success("Inventory updated from confirmed picks.")
-                st.rerun()
-                with tab2:st.subheader("Current Inventory")
+    if results:
+        st.success(f"{len(results)} item(s) matched and ready to pick")
+        domestic_results = [r for r in results if r["Order Type"] == "Domestic"]
+        international_results = [r for r in results if r["Order Type"] == "International"]
+        if domestic_results:
+            st.markdown("#### Domestic Orders")
+            st.dataframe(pd.DataFrame(domestic_results), use_container_width=True, hide_index=True)
+        if international_results:
+            st.markdown("#### International Orders")
+            st.dataframe(pd.DataFrame(international_results), use_container_width=True, hide_index=True)
+
+    if not_found:
+        st.warning("Could not find the following in inventory — please check manually:")
+        for item in not_found:
+            st.write(f"- {item}")
+
+    if pick_plan:
+        st.divider()
+        if st.button("Generate Receipt PDFs for Unpackaged Items"):
+            pdf_bytes, missing, included = generate_receipt_pdf_for_picks(pick_plan, inventory_df)
+
+            if included:
+                st.success("Included in PDF: " + ", ".join(included))
+            if missing:
+                st.warning("No receipt found for: " + ", ".join(missing))
+
+            if pdf_bytes and included:
+                st.download_button(
+                    "Download Printable Receipts PDF",
+                    data=pdf_bytes,
+                    file_name="receipts_to_print.pdf",
+                    mime="application/pdf"
+                )
+
+    if pick_plan:
+        st.divider()
+        if st.button("Confirm picks and deduct inventory"):
+            updated = inventory_df.copy()
+            for item in pick_plan:
+                for p in item["picks"]:
+                    if p["location"] is None:
+                        continue
+                    mask = (
+                        (updated["Standardized Full Name"] == item["matched"]) &
+                        (updated["Location"] == p["location"])
+                    )
+                    idxs = updated.index[mask].tolist()
+                    if idxs:
+                        i = idxs[0]
+                        updated.at[i, "Qty"] = max(0, int(updated.at[i, "Qty"]) - int(p["take"]))
+            save_inventory(updated.drop(columns=["Brand"], errors="ignore"))
+            st.success("Inventory updated from confirmed picks.")
+            st.session_state["pick_plan"] = []
+            st.session_state["pick_results"] = []
+            st.session_state["pick_not_found"] = []
+            st.rerun()
+
+with tab2:
+    st.subheader("Current Inventory")
 
     inventory_df["Brand"] = inventory_df["Standardized Full Name"].apply(brand_from_name)
 
