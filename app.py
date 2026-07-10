@@ -4,6 +4,7 @@ from rapidfuzz import process, fuzz
 from supabase import create_client
 import re
 import io
+import os
 import base64
 from docx import Document
 from reportlab.pdfgen import canvas
@@ -94,7 +95,6 @@ def save_alias(alias, canonical_name):
 
 def normalize_text(text):
     text = str(text).lower().strip()
-    text = text.replace("'", "'")
     text = re.sub(r"[^a-z0-9' ]+", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
@@ -108,27 +108,34 @@ def build_inventory_lookup(inv_names):
 def match_item(raw_name, aliases, inv_names, threshold=72):
     raw = normalize_text(raw_name)
     inv_lookup = build_inventory_lookup(inv_names)
+
     if raw in aliases:
         canon = aliases[raw]
         if canon in inv_names:
             return canon, "alias exact"
+
     if raw in inv_lookup:
         return inv_lookup[raw], "normalized exact"
+
     for alias, canon in aliases.items():
         if raw == normalize_text(alias):
             return canon, "alias normalized"
+
     best = process.extractOne(raw, list(inv_lookup.keys()), scorer=fuzz.WRatio)
     if best and best[1] >= threshold:
         return inv_lookup[best[0]], f"fuzzy ({best[1]:.0f}%)"
+
     alias_best = process.extractOne(raw, list(aliases.keys()), scorer=fuzz.WRatio)
     if alias_best and alias_best[1] >= threshold:
         return aliases[alias_best[0]], f"alias fuzzy ({alias_best[1]:.0f}%)"
+
     return None, "no match"
 
 def get_pick_locations(matched_name, qty_needed, df):
     candidates = df[df["Standardized Full Name"] == matched_name].copy()
     candidates = candidates.sort_values(["Pick Priority", "Location"])
     picks, remaining = [], qty_needed
+
     for _, row in candidates.iterrows():
         if remaining <= 0:
             break
@@ -136,10 +143,22 @@ def get_pick_locations(matched_name, qty_needed, df):
         if available <= 0:
             continue
         take = min(remaining, available)
-        picks.append({"location": row["Location"], "take": take, "stock_type": row["Stock Type"], "name": matched_name})
+        picks.append({
+            "location": row["Location"],
+            "take": take,
+            "stock_type": row["Stock Type"],
+            "name": matched_name
+        })
         remaining -= take
+
     if remaining > 0:
-        picks.append({"location": None, "take": remaining, "stock_type": "SHORTAGE", "name": matched_name})
+        picks.append({
+            "location": None,
+            "take": remaining,
+            "stock_type": "SHORTAGE",
+            "name": matched_name
+        })
+
     return picks
 
 def brand_from_name(name):
@@ -213,6 +232,7 @@ def generate_receipt_pdf_for_picks(pick_plan, inventory_df):
         row_match = inventory_df[inventory_df["Standardized Full Name"] == matched_name]
         if row_match.empty:
             continue
+
         stock_type = row_match.iloc[0]["Stock Type"]
         if stock_type != "Unpackaged":
             continue
@@ -236,6 +256,39 @@ def generate_receipt_pdf_for_picks(pick_plan, inventory_df):
     buf = io.BytesIO()
     output_writer.write(buf)
     return buf.getvalue(), missing, included
+
+def scan_and_import_receipts_folder(aliases, inv_names):
+    imported = []
+    unmatched = []
+    folder = "receipts"
+
+    if not os.path.isdir(folder):
+        return imported, unmatched
+
+    for filename in os.listdir(folder):
+        if not filename.lower().endswith(".docx"):
+            continue
+
+        filepath = os.path.join(folder, filename)
+        with open(filepath, "rb") as f:
+            file_bytes = f.read()
+
+        raw_name = os.path.splitext(filename)[0].replace("-", " ").replace("_", " ")
+        matched, method = match_item(raw_name, aliases, inv_names)
+
+        if matched:
+            encoded = base64.b64encode(file_bytes).decode("utf-8")
+            if sb:
+                sb.table("receipts").upsert({
+                    "product_name": matched,
+                    "filename": filename,
+                    "file_base64": encoded
+                }).execute()
+            imported.append(f"{filename} -> {matched} ({method})")
+        else:
+            unmatched.append(filename)
+
+    return imported, unmatched
 
 st.title("Perfume & Cologne Inventory + Pick Assistant")
 tab1, tab2, tab3, tab4 = st.tabs(["Pick Assistant", "Inventory Overview", "Add Stock", "Receipt Directory"])
@@ -261,12 +314,14 @@ with tab1:
             recip_m = re.search(r"\((.+?)\)", line)
             recipients = recip_m.group(1) if recip_m else ""
             return name, qty, recipients
+
         m = re.match(r"(.+?)\s+(\d+)\s*unit", line, re.IGNORECASE)
         if m:
             name, qty = m.group(1).strip(), int(m.group(2))
             recip_m = re.search(r"\((.+?)\)", line)
             recipients = recip_m.group(1) if recip_m else ("International" if order_type == "International" else "")
             return name, qty, recipients
+
         return None
 
     if st.button("Generate Pick List") and raw_text.strip():
@@ -284,18 +339,28 @@ with tab1:
                 if not parsed:
                     not_found.append(f"Could not read line format: {line}")
                     continue
+
                 name, qty, recipients = parsed
                 matched, method = match_item(name, aliases, inv_names)
+
                 if not matched:
                     not_found.append(f"{name} ({qty} units) — {recipients or order_type}")
                     continue
+
                 picks = get_pick_locations(matched, qty, inventory_df)
-                pick_plan.append({"requested": name, "matched": matched, "qty": qty, "picks": picks})
+                pick_plan.append({
+                    "requested": name,
+                    "matched": matched,
+                    "qty": qty,
+                    "picks": picks
+                })
+
                 pick_from_text = "; ".join([
                     f"{p['location']} (take {p['take']}, {p['stock_type']})"
                     if p["location"] else f"SHORTAGE: {p['take']} units unavailable"
                     for p in picks
                 ])
+
                 results.append({
                     "Order Type": order_type,
                     "Requested": name,
@@ -318,9 +383,11 @@ with tab1:
         st.success(f"{len(results)} item(s) matched and ready to pick")
         domestic_results = [r for r in results if r["Order Type"] == "Domestic"]
         international_results = [r for r in results if r["Order Type"] == "International"]
+
         if domestic_results:
             st.markdown("#### Domestic Orders")
             st.dataframe(pd.DataFrame(domestic_results), use_container_width=True, hide_index=True)
+
         if international_results:
             st.markdown("#### International Orders")
             st.dataframe(pd.DataFrame(international_results), use_container_width=True, hide_index=True)
@@ -352,18 +419,25 @@ with tab1:
         st.divider()
         if st.button("Confirm picks and deduct inventory"):
             updated = inventory_df.copy()
+
             for item in pick_plan:
                 for p in item["picks"]:
                     if p["location"] is None:
                         continue
+
                     mask = (
                         (updated["Standardized Full Name"] == item["matched"]) &
                         (updated["Location"] == p["location"])
                     )
                     idxs = updated.index[mask].tolist()
+
                     if idxs:
                         i = idxs[0]
-                        updated.at[i, "Qty"] = max(0, int(updated.at[i, "Qty"]) - int(p["take"]))
+                        updated.at[i, "Qty"] = max(
+                            0,
+                            int(updated.at[i, "Qty"]) - int(p["take"])
+                        )
+
             save_inventory(updated.drop(columns=["Brand"], errors="ignore"))
             st.success("Inventory updated from confirmed picks.")
             st.session_state["pick_plan"] = []
@@ -412,108 +486,6 @@ with tab2:
             )
             st.dataframe(display_group, use_container_width=True, hide_index=True)
 
-    st.divider()
-    st.subheader("Look Up Stock & Adjust Quantity")
-
-    search_term = st.text_input("Search by product name")
-    lookup_df = inventory_df.copy()
-    if search_term:
-        norm_search = normalize_text(search_term)
-        lookup_df = lookup_df[
-            lookup_df["Standardized Full Name"].apply(lambda x: norm_search in normalize_text(x))
-            | lookup_df["As Entered"].apply(lambda x: norm_search in normalize_text(x))
-        ]
-
-    if search_term and lookup_df.empty:
-        st.warning("No matching products found in inventory.")
-    elif search_term:
-        lookup_df = lookup_df.reset_index(drop=True)
-        lookup_df["Row Label"] = lookup_df.apply(
-            lambda r: f"{r['Location']} | {r['Standardized Full Name']} | {r['Stock Type']} | {r['Qty']} units",
-            axis=1
-        )
-        selected_label = st.selectbox("Select the exact stock line to adjust", lookup_df["Row Label"].tolist())
-        selected_row = lookup_df[lookup_df["Row Label"] == selected_label].iloc[0]
-        original_index = inventory_df[
-            (inventory_df["Location"] == selected_row["Location"]) &
-            (inventory_df["Standardized Full Name"] == selected_row["Standardized Full Name"]) &
-            (inventory_df["Stock Type"] == selected_row["Stock Type"])
-        ].index[0]
-
-        current_qty = int(inventory_df.at[original_index, "Qty"])
-        st.write(f"**Current quantity at {selected_row['Location']}:** {current_qty} units")
-
-        adjust_col1, adjust_col2, adjust_col3 = st.columns(3)
-        with adjust_col1:
-            add_amount = st.number_input("Add units", min_value=0, step=1, value=0, key="add_units")
-            if st.button("Add Stock to This Location"):
-                updated = inventory_df.drop(columns=["Brand"], errors="ignore").copy()
-                updated.at[original_index, "Qty"] = current_qty + int(add_amount)
-                save_inventory(updated)
-                st.success(f"Added {add_amount} unit(s). New quantity: {current_qty + int(add_amount)}")
-                st.rerun()
-
-        with adjust_col2:
-            remove_amount = st.number_input("Remove units", min_value=0, step=1, value=0, key="remove_units")
-            if st.button("Remove Stock from This Location"):
-                new_qty = max(0, current_qty - int(remove_amount))
-                updated = inventory_df.drop(columns=["Brand"], errors="ignore").copy()
-                updated.at[original_index, "Qty"] = new_qty
-                save_inventory(updated)
-                st.success(f"Removed {remove_amount} unit(s). New quantity: {new_qty}")
-                st.rerun()
-
-        with adjust_col3:
-            set_amount = st.number_input("Set exact quantity", min_value=0, step=1, value=current_qty, key="set_units")
-            if st.button("Set Exact Quantity"):
-                updated = inventory_df.drop(columns=["Brand"], errors="ignore").copy()
-                updated.at[original_index, "Qty"] = int(set_amount)
-                save_inventory(updated)
-                st.success(f"Quantity set to {int(set_amount)}")
-                st.rerun()
-
-    st.divider()
-    st.subheader("Edit or Delete Inventory Item")
-
-    inventory_df = inventory_df.reset_index(drop=True)
-    inventory_df["Edit Label"] = inventory_df.apply(
-        lambda r: f"{r['Location']} | {r['Standardized Full Name']} | {r['Qty']} units", axis=1
-    )
-    selected_edit_label = st.selectbox("Select item to edit", inventory_df["Edit Label"].tolist())
-    selected_edit_row = inventory_df[inventory_df["Edit Label"] == selected_edit_label].iloc[0]
-    selected_edit_index = selected_edit_row.name
-
-    edit_location = st.text_input("Location", value=str(selected_edit_row["Location"]))
-    edit_as_entered = st.text_input("As Entered", value=str(selected_edit_row["As Entered"]))
-    edit_full_name = st.text_input("Standardized Full Name", value=str(selected_edit_row["Standardized Full Name"]))
-    edit_qty = st.number_input("Quantity", min_value=0, step=1, value=int(selected_edit_row["Qty"]))
-    edit_stock_type = st.selectbox(
-        "Stock Type", ["Packaged", "Unpackaged"],
-        index=0 if str(selected_edit_row["Stock Type"]) == "Packaged" else 1
-    )
-
-    col_save, col_delete = st.columns(2)
-    with col_save:
-        if st.button("Save Changes"):
-            updated = inventory_df.drop(columns=["Edit Label", "Brand"], errors="ignore").copy()
-            updated.at[selected_edit_index, "Location"] = edit_location
-            updated.at[selected_edit_index, "As Entered"] = edit_as_entered
-            updated.at[selected_edit_index, "Standardized Full Name"] = edit_full_name
-            updated.at[selected_edit_index, "Qty"] = int(edit_qty)
-            updated.at[selected_edit_index, "Stock Type"] = edit_stock_type
-            updated.at[selected_edit_index, "Pick Priority"] = 1 if edit_stock_type == "Packaged" else 2
-            save_inventory(updated)
-            st.success("Inventory item updated.")
-            st.rerun()
-
-    with col_delete:
-        if st.button("Delete Item"):
-            updated = inventory_df.drop(columns=["Edit Label", "Brand"], errors="ignore").copy()
-            updated = updated.drop(index=selected_edit_index).reset_index(drop=True)
-            save_inventory(updated)
-            st.success("Inventory item deleted.")
-            st.rerun()
-
 with tab3:
     st.subheader("Add newly arrived stock")
     new_name = st.text_input("Product name (as written on box/invoice)")
@@ -523,6 +495,7 @@ with tab3:
 
     suggestion, method = (None, None)
     confirm_match = False
+
     if new_name:
         suggestion, method = match_item(new_name, aliases, inv_names)
         if suggestion:
@@ -543,17 +516,39 @@ with tab3:
             "Pick Priority": 1 if new_type == "Packaged" else 2,
             "Status": "Confirmed"
         }])
-        updated_df = pd.concat([inventory_df.drop(columns=["Brand", "Edit Label"], errors="ignore"), new_row], ignore_index=True)
+
+        updated_df = pd.concat([inventory_df.drop(columns=["Brand"], errors="ignore"), new_row], ignore_index=True)
         save_inventory(updated_df)
+
         if new_name and suggestion:
             save_alias(new_name, suggestion)
+
         st.success(f"Added {new_qty} unit(s) of '{final_name}' to {new_location}")
         st.rerun()
 
 with tab4:
     st.subheader("Receipt Directory")
-    st.caption("Upload the .docx receipt for each unpackaged product. One file per product.")
+    st.caption("Use the GitHub receipts folder for bulk import, or upload one manually if needed.")
 
+    st.divider()
+    st.subheader("Bulk Import from GitHub Folder")
+    st.caption("Uploads every .docx file inside the 'receipts' folder in your repo and matches it to a product automatically.")
+
+    if st.button("Import All Receipts from Folder"):
+        imported, unmatched = scan_and_import_receipts_folder(aliases, inv_names)
+
+        if imported:
+            st.success(f"Imported {len(imported)} receipt(s):")
+            for line in imported:
+                st.write(f"- {line}")
+
+        if unmatched:
+            st.warning("Could not match these files — rename them to match the product name more closely, or upload manually below:")
+            for f in unmatched:
+                st.write(f"- {f}")
+
+    st.divider()
+    st.subheader("Manual Upload (Optional)")
     uploaded = st.file_uploader("Upload receipt (.docx)", type=["docx"])
     linked_name = st.text_input("Link this receipt to product (exact Standardized Full Name)")
 
@@ -575,14 +570,5 @@ with tab4:
         res = sb.table("receipts").select("product_name, filename").execute()
         if res.data:
             st.dataframe(pd.DataFrame(res.data), use_container_width=True, hide_index=True)
-
-            delete_choice = st.selectbox(
-                "Delete a receipt",
-                ["-- select --"] + [r["product_name"] for r in res.data]
-            )
-            if delete_choice != "-- select --" and st.button("Delete Selected Receipt"):
-                sb.table("receipts").delete().eq("product_name", delete_choice).execute()
-                st.success(f"Deleted receipt for '{delete_choice}'")
-                st.rerun()
         else:
             st.info("No receipts uploaded yet.")
