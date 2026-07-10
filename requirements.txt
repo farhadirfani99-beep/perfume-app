@@ -5,3 +5,7 @@ supabase
 python-docx
 reportlab
 pypdf
+rapidfuzz
+supabase
+streamlit
+pandas
