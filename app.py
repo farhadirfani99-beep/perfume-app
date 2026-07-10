@@ -238,7 +238,7 @@ def brand_from_name(name):
     return "Other"
 
 st.title("Perfume & Cologne Inventory + Pick Assistant")
-tab1, tab2, tab3 = st.tabs(["Pick Assistant", "Inventory Overview", "Add Stock"])
+tab1, tab2, tab3, tab4 = st.tabs(["Pick Assistant", "Inventory Overview", "Add Stock", "Receipt Directory"])
 
 inventory_df = load_inventory()
 aliases = load_aliases()
@@ -518,3 +518,40 @@ with tab3:
             save_alias(new_name, suggestion)
         st.success(f"Added {new_qty} unit(s) of '{final_name}' to {new_location}")
         st.rerun()
+
+with tab4:
+    st.subheader("Receipt Directory")
+    st.caption("Upload the .docx receipt for each unpackaged product. One file per product.")
+
+    uploaded = st.file_uploader("Upload receipt (.docx)", type=["docx"])
+    linked_name = st.text_input("Link this receipt to product (exact Standardized Full Name)")
+
+    if uploaded and linked_name and st.button("Save Receipt"):
+        file_bytes = uploaded.read()
+        encoded = base64.b64encode(file_bytes).decode("utf-8")
+        if sb:
+            sb.table("receipts").upsert({
+                "product_name": linked_name,
+                "filename": uploaded.name,
+                "file_base64": encoded
+            }).execute()
+        st.success(f"Receipt saved and linked to '{linked_name}'")
+        st.rerun()
+
+    st.divider()
+    st.subheader("Existing Receipts")
+    if sb:
+        res = sb.table("receipts").select("product_name, filename").execute()
+        if res.data:
+            st.dataframe(pd.DataFrame(res.data), use_container_width=True, hide_index=True)
+
+            delete_choice = st.selectbox(
+                "Delete a receipt",
+                ["-- select --"] + [r["product_name"] for r in res.data]
+            )
+            if delete_choice != "-- select --" and st.button("Delete Selected Receipt"):
+                sb.table("receipts").delete().eq("product_name", delete_choice).execute()
+                st.success(f"Deleted receipt for '{delete_choice}'")
+                st.rerun()
+        else:
+            st.info("No receipts uploaded yet.")
