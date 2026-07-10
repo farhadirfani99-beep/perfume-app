@@ -3,7 +3,84 @@ import pandas as pd
 from rapidfuzz import process, fuzz
 from supabase import create_client
 import re
+import io
+import base64
+from docx import Document
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import mm as mm_unit
+from pypdf import PdfWriter, PdfReader
 
+RECEIPT_WIDTH_MM = 80
+RECEIPT_WIDTH_PT = RECEIPT_WIDTH_MM * mm_unit
+LINE_HEIGHT = 12
+FONT_SIZE = 9
+MARGIN = 10
+
+def extract_docx_lines(docx_bytes):
+    doc = Document(io.BytesIO(docx_bytes))
+    lines = []
+    for para in doc.paragraphs:
+        text = para.text.strip()
+        if text:
+            lines.append(text)
+    return lines
+
+def build_receipt_pdf_bytes(lines):
+    height_pt = MARGIN * 2 + LINE_HEIGHT * (len(lines) + 2)
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=(RECEIPT_WIDTH_PT, height_pt))
+    c.setFont("Helvetica", FONT_SIZE)
+    y = height_pt - MARGIN - LINE_HEIGHT
+    for line in lines:
+        c.drawString(MARGIN, y, line[:60])
+        y -= LINE_HEIGHT
+    c.showPage()
+    c.save()
+    buf.seek(0)
+    return buf.read(), height_pt
+
+def get_receipt_bytes(product_name):
+    if not sb:
+        return None
+    res = sb.table("receipts").select("*").eq("product_name", product_name).execute()
+    if not res.data:
+        return None
+    return base64.b64decode(res.data[0]["file_base64"])
+
+def generate_receipt_pdf_for_picks(pick_plan, inventory_df):
+    output_writer = PdfWriter()
+    missing = []
+    included = []
+
+    for item in pick_plan:
+        matched_name = item["matched"]
+        row_match = inventory_df[inventory_df["Standardized Full Name"] == matched_name]
+        if row_match.empty:
+            continue
+        stock_type = row_match.iloc[0]["Stock Type"]
+        if stock_type != "Unpackaged":
+            continue
+
+        docx_bytes = get_receipt_bytes(matched_name)
+        if not docx_bytes:
+            missing.append(matched_name)
+            continue
+
+        lines = extract_docx_lines(docx_bytes)
+        pdf_bytes, _ = build_receipt_pdf_bytes(lines)
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+
+        copies_needed = int(item["qty"])
+        for _ in range(copies_needed):
+            for page in reader.pages:
+                output_writer.add_page(page)
+
+        included.append(f"{matched_name} x{copies_needed}")
+
+    buf = io.BytesIO()
+    output_writer.write(buf)
+    return buf.getvalue(), missing, included
+    
 SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
 SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "")
 
