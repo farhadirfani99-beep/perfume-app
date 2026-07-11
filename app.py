@@ -534,19 +534,32 @@ with tab4:
     st.subheader("Bulk Import from GitHub Folder")
     st.caption("Uploads every .docx file inside the 'receipts' folder in your repo and matches it to a product automatically.")
 
-    if st.button("Import All Receipts from Folder"):
+       if st.button("Import All Receipts from Folder"):
+        cwd = os.getcwd()
+        st.write(f"Current directory: {cwd}")
+        st.write(f"Files/folders here: {os.listdir(cwd)}")
+
+        folder_exists = os.path.isdir("receipts")
+        st.write(f"'receipts' folder found: {folder_exists}")
+
+        if folder_exists:
+            files_in_folder = os.listdir("receipts")
+            st.write(f"Files inside 'receipts': {files_in_folder}")
+
         imported, unmatched = scan_and_import_receipts_folder(aliases, inv_names)
 
         if imported:
             st.success(f"Imported {len(imported)} receipt(s):")
             for line in imported:
                 st.write(f"- {line}")
+        else:
+            st.error("No receipts were imported.")
 
         if unmatched:
-            st.warning("Could not match these files — rename them to match the product name more closely, or upload manually below:")
+            st.warning("Could not match these files:")
             for f in unmatched:
                 st.write(f"- {f}")
-
+                
     st.divider()
     st.subheader("Manual Upload (Optional)")
     uploaded = st.file_uploader("Upload receipt (.docx)", type=["docx"])
