@@ -534,7 +534,7 @@ with tab4:
     st.subheader("Bulk Import from GitHub Folder")
     st.caption("Uploads every .docx file inside the 'receipts' folder in your repo and matches it to a product automatically.")
 
-       if st.button("Import All Receipts from Folder"):
+      if st.button("Import All Receipts from Folder"):
         cwd = os.getcwd()
         st.write(f"Current directory: {cwd}")
         st.write(f"Files/folders here: {os.listdir(cwd)}")
