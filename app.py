@@ -206,9 +206,11 @@ def build_receipt_pdf_bytes(lines):
     c = canvas.Canvas(buf, pagesize=(RECEIPT_WIDTH_PT, height_pt))
     c.setFont("Helvetica", FONT_SIZE)
     y = height_pt - MARGIN - LINE_HEIGHT
+
     for line in lines:
         c.drawString(MARGIN, y, line[:60])
         y -= LINE_HEIGHT
+
     c.showPage()
     c.save()
     buf.seek(0)
@@ -291,7 +293,13 @@ def scan_and_import_receipts_folder(aliases, inv_names):
     return imported, unmatched
 
 st.title("Perfume & Cologne Inventory + Pick Assistant")
-tab1, tab2, tab3, tab4 = st.tabs(["Pick Assistant", "Inventory Overview", "Add Stock", "Receipt Directory"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "Pick Assistant",
+    "Inventory Overview",
+    "Add Stock",
+    "Receipt Directory",
+    "Manual Pick"
+])
 
 inventory_df = load_inventory()
 aliases = load_aliases()
@@ -471,7 +479,9 @@ with tab2:
     st.metric("Visible stock units", total_units)
     st.caption(f"{total_lines} stock lines shown")
 
-    grouped = view_df.sort_values(["Pick Priority", "Location", "Brand", "Standardized Full Name"]).groupby("Location")
+    grouped = view_df.sort_values(
+        ["Pick Priority", "Location", "Brand", "Standardized Full Name"]
+    ).groupby("Location")
 
     for location, group in grouped:
         location_total = int(group["Qty"].sum())
@@ -480,7 +490,9 @@ with tab2:
 
         with st.container(border=True):
             st.markdown(f"### {location}")
-            st.caption(f"Total units: {location_total} | Packaged: {packaged_count} | Unpackaged: {unpackaged_count}")
+            st.caption(
+                f"Total units: {location_total} | Packaged: {packaged_count} | Unpackaged: {unpackaged_count}"
+            )
             display_group = group[["Standardized Full Name", "Brand", "Qty", "Stock Type", "As Entered"]].rename(
                 columns={"Standardized Full Name": "Product", "Qty": "Units", "Stock Type": "Type"}
             )
@@ -500,7 +512,9 @@ with tab3:
         suggestion, method = match_item(new_name, aliases, inv_names)
         if suggestion:
             st.info(f"This looks like an existing product: **{suggestion}** (match: {method})")
-            confirm_match = st.checkbox(f"Yes, add to existing '{suggestion}' instead of creating a new product")
+            confirm_match = st.checkbox(
+                f"Yes, add to existing '{suggestion}' instead of creating a new product"
+            )
         else:
             st.warning("No close match found — this will be added as a brand new product.")
 
@@ -517,7 +531,10 @@ with tab3:
             "Status": "Confirmed"
         }])
 
-        updated_df = pd.concat([inventory_df.drop(columns=["Brand"], errors="ignore"), new_row], ignore_index=True)
+        updated_df = pd.concat(
+            [inventory_df.drop(columns=["Brand"], errors="ignore"), new_row],
+            ignore_index=True
+        )
         save_inventory(updated_df)
 
         if new_name and suggestion:
@@ -534,17 +551,14 @@ with tab4:
     st.subheader("Bulk Import from GitHub Folder")
     st.caption("Uploads every .docx file inside the 'receipts' folder in your repo and matches it to a product automatically.")
 
-      if st.button("Import All Receipts from Folder"):
+    if st.button("Import All Receipts from Folder"):
         cwd = os.getcwd()
-        st.write(f"Current directory: {cwd}")
-        st.write(f"Files/folders here: {os.listdir(cwd)}")
-
         folder_exists = os.path.isdir("receipts")
-        st.write(f"'receipts' folder found: {folder_exists}")
+        st.write(f"Looking in: {cwd}/receipts — folder found: {folder_exists}")
 
         if folder_exists:
-            files_in_folder = os.listdir("receipts")
-            st.write(f"Files inside 'receipts': {files_in_folder}")
+            files_in_folder = [f for f in os.listdir("receipts") if f.lower().endswith(".docx")]
+            st.write(f"Found {len(files_in_folder)} .docx file(s) in the folder.")
 
         imported, unmatched = scan_and_import_receipts_folder(aliases, inv_names)
 
@@ -553,13 +567,13 @@ with tab4:
             for line in imported:
                 st.write(f"- {line}")
         else:
-            st.error("No receipts were imported.")
+            st.error("No receipts were imported. Check the folder name and location shown above.")
 
         if unmatched:
-            st.warning("Could not match these files:")
+            st.warning("Could not match these files — rename them to match the product name more closely, or add manually below:")
             for f in unmatched:
                 st.write(f"- {f}")
-                
+
     st.divider()
     st.subheader("Manual Upload (Optional)")
     uploaded = st.file_uploader("Upload receipt (.docx)", type=["docx"])
@@ -583,5 +597,118 @@ with tab4:
         res = sb.table("receipts").select("product_name, filename").execute()
         if res.data:
             st.dataframe(pd.DataFrame(res.data), use_container_width=True, hide_index=True)
+
+            delete_choice = st.selectbox(
+                "Delete a receipt",
+                ["-- select --"] + [r["product_name"] for r in res.data]
+            )
+            if delete_choice != "-- select --" and st.button("Delete Selected Receipt"):
+                sb.table("receipts").delete().eq("product_name", delete_choice).execute()
+                st.success(f"Deleted receipt for '{delete_choice}'")
+                st.rerun()
         else:
             st.info("No receipts uploaded yet.")
+
+with tab5:
+    st.subheader("Manual Pick")
+    st.caption("Search any product in your inventory, pick a quantity, deduct stock, and generate a receipt PDF if needed.")
+
+    search_manual = st.text_input("Search product name", key="manual_search")
+
+    filtered_names = inv_names
+    if search_manual:
+        norm_search = normalize_text(search_manual)
+        filtered_names = [n for n in inv_names if norm_search in normalize_text(n)]
+        if not filtered_names:
+            matched_guess, _ = match_item(search_manual, aliases, inv_names)
+            if matched_guess:
+                filtered_names = [matched_guess]
+
+    if not filtered_names:
+        st.warning("No matching products found.")
+    else:
+        selected_product = st.selectbox("Select product", sorted(filtered_names), key="manual_product_select")
+
+        product_rows = inventory_df[inventory_df["Standardized Full Name"] == selected_product].copy()
+        product_rows = product_rows.sort_values(["Pick Priority", "Location"])
+
+        st.markdown(f"**Available stock for {selected_product}:**")
+        display_rows = product_rows[["Location", "Qty", "Stock Type"]].rename(
+            columns={"Qty": "Units"}
+        )
+        st.dataframe(display_rows, use_container_width=True, hide_index=True)
+
+        total_available = int(product_rows["Qty"].sum())
+        st.caption(f"Total available: {total_available} units")
+
+        manual_qty = st.number_input("Quantity to pick", min_value=1, step=1, value=1, key="manual_qty")
+
+        if st.button("Generate Manual Pick"):
+            if manual_qty > total_available:
+                st.error(f"Not enough stock. Only {total_available} unit(s) available.")
+            else:
+                picks = get_pick_locations(selected_product, int(manual_qty), inventory_df)
+                pick_from_text = "; ".join([
+                    f"{p['location']} (take {p['take']}, {p['stock_type']})"
+                    if p["location"] else f"SHORTAGE: {p['take']} units unavailable"
+                    for p in picks
+                ])
+                st.session_state["manual_pick_plan"] = [{
+                    "requested": selected_product,
+                    "matched": selected_product,
+                    "qty": int(manual_qty),
+                    "picks": picks
+                }]
+                st.success(f"Pick from: {pick_from_text}")
+
+        manual_pick_plan = st.session_state.get("manual_pick_plan", [])
+
+        if manual_pick_plan:
+            st.divider()
+
+            col_pdf, col_confirm = st.columns(2)
+
+            with col_pdf:
+                if st.button("Generate Receipt PDF for This Pick"):
+                    pdf_bytes, missing, included = generate_receipt_pdf_for_picks(manual_pick_plan, inventory_df)
+
+                    if included:
+                        st.success("Included in PDF: " + ", ".join(included))
+                    if missing:
+                        st.warning("No receipt found for: " + ", ".join(missing))
+
+                    if pdf_bytes and included:
+                        st.download_button(
+                            "Download Printable Receipt PDF",
+                            data=pdf_bytes,
+                            file_name="manual_pick_receipt.pdf",
+                            mime="application/pdf",
+                            key="manual_pdf_download"
+                        )
+
+            with col_confirm:
+                if st.button("Confirm Pick and Deduct Inventory"):
+                    updated = inventory_df.copy()
+
+                    for item in manual_pick_plan:
+                        for p in item["picks"]:
+                            if p["location"] is None:
+                                continue
+
+                            mask = (
+                                (updated["Standardized Full Name"] == item["matched"]) &
+                                (updated["Location"] == p["location"])
+                            )
+                            idxs = updated.index[mask].tolist()
+
+                            if idxs:
+                                i = idxs[0]
+                                updated.at[i, "Qty"] = max(
+                                    0,
+                                    int(updated.at[i, "Qty"]) - int(p["take"])
+                                )
+
+                    save_inventory(updated.drop(columns=["Brand"], errors="ignore"))
+                    st.success("Inventory updated from manual pick.")
+                    st.session_state["manual_pick_plan"] = []
+                    st.rerun()
