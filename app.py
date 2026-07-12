@@ -5,6 +5,7 @@ import re
 import io
 import os
 import base64
+from pathlib import Path
 from docx import Document
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import mm as mm_unit
@@ -18,6 +19,9 @@ RECEIPT_WIDTH_PT = RECEIPT_WIDTH_MM * mm_unit
 LINE_HEIGHT = 12
 FONT_SIZE = 9
 MARGIN = 10
+INVENTORY_FILE = "inventory_master_final.csv"
+RECEIPTS_DIR = Path("receipts")
+RECEIPTS_DIR.mkdir(exist_ok=True)
 
 @st.cache_resource
 def get_client():
@@ -26,41 +30,143 @@ def get_client():
 sb = get_client() if SUPABASE_URL and SUPABASE_KEY else None
 st.set_page_config(page_title="Perfume Inventory & Pick Assistant", layout="wide")
 
+
+def normalize_sku(text):
+    return str(text).strip().zfill(3)
+
+
 def load_inventory():
     if sb:
         res = sb.table("inventory").select("*").execute()
-        return pd.DataFrame(res.data)
-    return pd.read_csv("inventory_master_final.csv", dtype={"SKU": str})
+        df = pd.DataFrame(res.data)
+    else:
+        df = pd.read_csv(INVENTORY_FILE, dtype={"SKU": str})
+
+    if df.empty:
+        return pd.DataFrame(columns=[
+            "SKU", "Location", "As Entered", "Standardized Full Name", "Qty",
+            "Needs Confirmation", "Stock Type", "Pick Priority", "Status"
+        ])
+
+    df["SKU"] = df["SKU"].astype(str).str.zfill(3)
+    df["Qty"] = pd.to_numeric(df["Qty"], errors="coerce").fillna(0).astype(int)
+    df["Pick Priority"] = pd.to_numeric(df["Pick Priority"], errors="coerce").fillna(999).astype(int)
+    return df
+
 
 def save_inventory(df):
+    df = df.copy()
+    df["SKU"] = df["SKU"].astype(str).str.zfill(3)
+    df["Qty"] = pd.to_numeric(df["Qty"], errors="coerce").fillna(0).astype(int)
+    df["Pick Priority"] = pd.to_numeric(df["Pick Priority"], errors="coerce").fillna(999).astype(int)
+
     if sb:
         rows = df.to_dict(orient="records")
         sb.table("inventory").delete().neq("id", -1).execute()
         if rows:
             sb.table("inventory").insert(rows).execute()
     else:
-        df.to_csv("inventory_master_final.csv", index=False)
+        df.to_csv(INVENTORY_FILE, index=False)
 
-def load_receipt_index():
-    if not sb:
-        return pd.DataFrame(columns=["sku", "filename", "file_base64"])
-    res = sb.table("receipts").select("*").execute()
-    return pd.DataFrame(res.data)
 
-def normalize_sku(text):
-    return str(text).strip().zfill(3)
+def extract_docx_lines(docx_bytes):
+    doc = Document(io.BytesIO(docx_bytes))
+    lines = []
+    for para in doc.paragraphs:
+        text = para.text.strip()
+        if text:
+            lines.append(text)
+    return lines
+
+
+def build_receipt_pdf_bytes(lines):
+    height_pt = MARGIN * 2 + LINE_HEIGHT * (len(lines) + 2)
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=(RECEIPT_WIDTH_PT, height_pt))
+    c.setFont("Helvetica", FONT_SIZE)
+    y = height_pt - MARGIN - LINE_HEIGHT
+
+    for line in lines:
+        c.drawString(MARGIN, y, line[:60])
+        y -= LINE_HEIGHT
+
+    c.showPage()
+    c.save()
+    buf.seek(0)
+    return buf.read(), height_pt
+
+
+def get_receipt_path_for_sku(sku):
+    sku = normalize_sku(sku)
+    for ext in [".docx", ".pdf", ".jpg", ".jpeg", ".png"]:
+        candidate = RECEIPTS_DIR / f"{sku}{ext}"
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def get_receipt_bytes(sku):
+    path = get_receipt_path_for_sku(sku)
+    if not path:
+        return None, None
+    with open(path, "rb") as f:
+        return f.read(), path.suffix.lower()
+
+
+def generate_receipt_pdf_for_picks(pick_plan, inventory_df):
+    output_writer = PdfWriter()
+    missing = []
+    included = []
+
+    for item in pick_plan:
+        sku = normalize_sku(item["sku"])
+        row_match = inventory_df[inventory_df["SKU"] == sku]
+        if row_match.empty:
+            continue
+
+        stock_type = row_match.iloc[0]["Stock Type"]
+        if stock_type != "Unpackaged":
+            continue
+
+        receipt_bytes, receipt_ext = get_receipt_bytes(sku)
+        if not receipt_bytes or receipt_ext != ".docx":
+            missing.append(sku)
+            continue
+
+        lines = extract_docx_lines(receipt_bytes)
+        pdf_bytes, _ = build_receipt_pdf_bytes(lines)
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+
+        copies_needed = int(item["qty"])
+        for _ in range(copies_needed):
+            for page in reader.pages:
+                output_writer.add_page(page)
+
+        name = row_match.iloc[0]["Standardized Full Name"]
+        included.append(f"{sku} - {name} x{copies_needed}")
+
+    if not included:
+        return None, missing, included
+
+    buf = io.BytesIO()
+    output_writer.write(buf)
+    return buf.getvalue(), missing, included
+
 
 def get_pick_locations(sku, qty_needed, df):
-    candidates = df[df["SKU"].astype(str).str.zfill(3) == normalize_sku(sku)].copy()
+    candidates = df[df["SKU"] == normalize_sku(sku)].copy()
     candidates = candidates.sort_values(["Pick Priority", "Location"])
-    picks, remaining = [], qty_needed
+    picks = []
+    remaining = int(qty_needed)
 
     for _, row in candidates.iterrows():
         if remaining <= 0:
             break
+
         available = int(row["Qty"])
         if available <= 0:
             continue
+
         take = min(remaining, available)
         picks.append({
             "location": row["Location"],
@@ -82,71 +188,6 @@ def get_pick_locations(sku, qty_needed, df):
 
     return picks
 
-def extract_docx_lines(docx_bytes):
-    doc = Document(io.BytesIO(docx_bytes))
-    lines = []
-    for para in doc.paragraphs:
-        text = para.text.strip()
-        if text:
-            lines.append(text)
-    return lines
-
-def build_receipt_pdf_bytes(lines):
-    height_pt = MARGIN * 2 + LINE_HEIGHT * (len(lines) + 2)
-    buf = io.BytesIO()
-    c = canvas.Canvas(buf, pagesize=(RECEIPT_WIDTH_PT, height_pt))
-    c.setFont("Helvetica", FONT_SIZE)
-    y = height_pt - MARGIN - LINE_HEIGHT
-    for line in lines:
-        c.drawString(MARGIN, y, line[:60])
-        y -= LINE_HEIGHT
-    c.showPage()
-    c.save()
-    buf.seek(0)
-    return buf.read(), height_pt
-
-def get_receipt_bytes(sku):
-    if not sb:
-        return None
-    res = sb.table("receipts").select("*").eq("sku", normalize_sku(sku)).execute()
-    if not res.data:
-        return None
-    return base64.b64decode(res.data[0]["file_base64"])
-
-def generate_receipt_pdf_for_picks(pick_plan, inventory_df):
-    output_writer = PdfWriter()
-    missing = []
-    included = []
-
-    for item in pick_plan:
-        sku = normalize_sku(item["sku"])
-        row_match = inventory_df[inventory_df["SKU"].astype(str).str.zfill(3) == sku]
-        if row_match.empty:
-            continue
-        stock_type = row_match.iloc[0]["Stock Type"]
-        if stock_type != "Unpackaged":
-            continue
-
-        docx_bytes = get_receipt_bytes(sku)
-        if not docx_bytes:
-            missing.append(sku)
-            continue
-
-        lines = extract_docx_lines(docx_bytes)
-        pdf_bytes, _ = build_receipt_pdf_bytes(lines)
-        reader = PdfReader(io.BytesIO(pdf_bytes))
-
-        copies_needed = int(item["qty"])
-        for _ in range(copies_needed):
-            for page in reader.pages:
-                output_writer.add_page(page)
-
-        name = row_match.iloc[0]["Standardized Full Name"]
-        included.append(f"{sku} - {name} x{copies_needed}")
-
-    buf = io.BytesIO()
-    output_writer.write(buf)
-    return buf.getvalue(), missing, included
 
 def parse_pick_line(line):
     m = re.match(r"\s*(\d{1,3})\s*[-–—:]?\s*(\d+)\s*unit", line, re.IGNORECASE)
@@ -156,7 +197,25 @@ def parse_pick_line(line):
         return None
     return normalize_sku(m.group(1)), int(m.group(2))
 
+
+def list_receipts_from_folder():
+    rows = []
+    for ext in ["*.docx", "*.pdf", "*.jpg", "*.jpeg", "*.png"]:
+        for file in RECEIPTS_DIR.glob(ext):
+            sku = normalize_sku(file.stem)
+            rows.append({
+                "SKU": sku,
+                "Filename": file.name,
+                "Type": file.suffix.lower().replace(".", "").upper(),
+                "Path": str(file)
+            })
+    if not rows:
+        return pd.DataFrame(columns=["SKU", "Filename", "Type", "Path"])
+    return pd.DataFrame(rows).sort_values(["SKU", "Filename"]).reset_index(drop=True)
+
+
 st.title("Perfume Inventory & Pick Assistant")
+
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "Pick Assistant",
     "Inventory Overview",
@@ -166,7 +225,6 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 ])
 
 inventory_df = load_inventory()
-inventory_df["SKU"] = inventory_df["SKU"].astype(str).str.zfill(3)
 
 with tab1:
     st.subheader("Paste SKU pick list below")
@@ -178,7 +236,7 @@ with tab1:
         not_found = []
         pick_plan = []
 
-        lines = [l.strip() for l in raw_text.split("\n") if l.strip()]
+        lines = [l.strip() for l in raw_text.splitlines() if l.strip()]
         for line in lines:
             parsed = parse_pick_line(line)
             if not parsed:
@@ -216,7 +274,7 @@ with tab1:
     not_found = st.session_state.get("pick_not_found", [])
 
     if results:
-        st.success(f"{len(results)} item(s) matched and ready to pick")
+        st.success(f"✅ {len(results)} item(s) matched and ready to pick")
         st.dataframe(pd.DataFrame(results), use_container_width=True, hide_index=True)
 
     if not_found:
@@ -229,9 +287,9 @@ with tab1:
         if st.button("Generate Receipt PDFs for Unpackaged Items"):
             pdf_bytes, missing, included = generate_receipt_pdf_for_picks(pick_plan, inventory_df)
             if included:
-                st.success("Included in PDF: " + ", ".join(included))
+                st.success("✅ Included in PDF: " + ", ".join(included))
             if missing:
-                st.warning("No receipt found for SKU(s): " + ", ".join(missing))
+                st.warning("No DOCX receipt found for SKU(s): " + ", ".join(missing))
             if pdf_bytes and included:
                 st.download_button(
                     "Download Printable Receipts PDF",
@@ -256,8 +314,9 @@ with tab1:
                     if idxs:
                         i = idxs[0]
                         updated.at[i, "Qty"] = max(0, int(updated.at[i, "Qty"]) - int(p["take"]))
+
             save_inventory(updated)
-            st.success("Inventory updated from confirmed picks.")
+            st.success("✅ Inventory updated from confirmed picks.")
             st.session_state["pick_plan"] = []
             st.session_state["pick_results"] = []
             st.session_state["pick_not_found"] = []
@@ -265,11 +324,13 @@ with tab1:
 
 with tab2:
     st.subheader("Current Inventory")
+
     stock_filter = st.selectbox("Stock type", ["All", "Packaged", "Unpackaged"])
-    location_filter = st.selectbox("Location", ["All"] + sorted(inventory_df["Location"].unique().tolist()))
+    location_filter = st.selectbox("Location", ["All"] + sorted(inventory_df["Location"].dropna().unique().tolist()))
     sku_filter = st.text_input("Search SKU")
 
     view_df = inventory_df.copy()
+
     if stock_filter != "All":
         view_df = view_df[view_df["Stock Type"] == stock_filter]
     if location_filter != "All":
@@ -277,17 +338,52 @@ with tab2:
     if sku_filter.strip():
         view_df = view_df[view_df["SKU"] == normalize_sku(sku_filter)]
 
-    st.dataframe(view_df[["SKU", "Standardized Full Name", "Location", "Qty", "Stock Type"]], use_container_width=True, hide_index=True)
+    st.dataframe(
+        view_df[["SKU", "Standardized Full Name", "Location", "Qty", "Stock Type", "Pick Priority"]],
+        use_container_width=True,
+        hide_index=True
+    )
 
 with tab3:
     st.subheader("Add newly arrived stock")
+
     sku_options = inventory_df[["SKU", "Standardized Full Name"]].drop_duplicates().sort_values(["SKU"])
-    sku_choice = st.selectbox("Select existing SKU", [f"{r.SKU} - {r['Standardized Full Name']}" for _, r in sku_options.iterrows()])
+    sku_choice = st.selectbox(
+        "Select existing SKU",
+        [f"{r.SKU} - {r['Standardized Full Name']}" for _, r in sku_options.iterrows()]
+    )
+
     selected_sku = sku_choice.split(" - ")[0]
     selected_name = sku_options[sku_options["SKU"] == selected_sku].iloc[0]["Standardized Full Name"]
-    new_qty = st.number_input("Quantity", min_value=1, step=1)
-    new_location = st.text_input("Location (e.g. Box 15, Cabinet, Location 4)")
+
+    new_qty = st.number_input("Quantity", min_value=1, step=1, value=1)
+
+    location_options = [
+        "Cabinet",
+        "Location 1 - Next to cabinet",
+        "Location 2 - On the table",
+        "Location 3 - Next to wall",
+        "Box 1",
+        "Box 2",
+        "Box 3",
+        "Box 4",
+        "Box 5",
+        "Box 6",
+        "Box 7",
+        "Box 8",
+        "Box 9",
+        "Box 10",
+        "Box 11",
+        "Box 12",
+        "Box 13",
+        "Box 14",
+        "Tub"
+    ]
+
+    new_location = st.selectbox("Location", location_options, index=0)
     new_type = st.selectbox("Stock type", ["Unpackaged", "Packaged"])
+
+    default_priority = 99 if (new_type == "Unpackaged" and new_location == "Cabinet") else (1 if new_type == "Packaged" else 2)
 
     if st.button("Add Stock"):
         new_row = pd.DataFrame([{
@@ -298,52 +394,74 @@ with tab3:
             "Qty": int(new_qty),
             "Needs Confirmation": False,
             "Stock Type": new_type,
-            "Pick Priority": 1 if new_type == "Packaged" else 2,
+            "Pick Priority": default_priority,
             "Status": "Confirmed"
         }])
+
         updated_df = pd.concat([inventory_df, new_row], ignore_index=True)
         save_inventory(updated_df)
-        st.success(f"Added {new_qty} unit(s) of SKU {selected_sku} to {new_location}")
+        st.success(f"✅ Added {new_qty} unit(s) of SKU {selected_sku} to {new_location}.")
         st.rerun()
 
 with tab4:
     st.subheader("Receipt Directory")
-    st.caption("Receipts are now linked to SKU only.")
-    uploaded = st.file_uploader("Upload receipt (.docx)", type=["docx"])
-    receipt_sku = st.text_input("Link this receipt to SKU (3 digits)")
+    st.caption("Receipts are loaded automatically from the receipts folder using SKU-only filenames like 018.docx")
 
-    if uploaded and receipt_sku and st.button("Save Receipt"):
-        file_bytes = uploaded.read()
-        encoded = base64.b64encode(file_bytes).decode("utf-8")
-        if sb:
-            sb.table("receipts").upsert({
-                "sku": normalize_sku(receipt_sku),
-                "filename": uploaded.name,
-                "file_base64": encoded
-            }).execute()
-        st.success(f"Receipt saved and linked to SKU {normalize_sku(receipt_sku)}")
-        st.rerun()
+    receipt_df = list_receipts_from_folder()
 
-    if sb:
-        res = sb.table("receipts").select("sku, filename").execute()
-        if res.data:
-            st.dataframe(pd.DataFrame(res.data), use_container_width=True, hide_index=True)
-        else:
-            st.info("No receipts uploaded yet.")
+    if receipt_df.empty:
+        st.info("No receipts found in the receipts folder.")
+    else:
+        receipt_df["Matched Product"] = receipt_df["SKU"].map(
+            inventory_df.drop_duplicates("SKU").set_index("SKU")["Standardized Full Name"]
+        ).fillna("Unmatched SKU")
+
+        st.success(f"✅ {len(receipt_df)} receipt file(s) loaded automatically.")
+        st.dataframe(
+            receipt_df[["SKU", "Matched Product", "Filename", "Type"]],
+            use_container_width=True,
+            hide_index=True
+        )
+
+        selected_file = st.selectbox("Preview receipt file", receipt_df["Filename"].tolist())
+        selected_row = receipt_df[receipt_df["Filename"] == selected_file].iloc[0]
+        selected_path = Path(selected_row["Path"])
+        suffix = selected_path.suffix.lower()
+
+        if suffix in [".jpg", ".jpeg", ".png"]:
+            st.image(str(selected_path), caption=selected_path.name, use_container_width=True)
+
+        with open(selected_path, "rb") as f:
+            mime_map = {
+                ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ".pdf": "application/pdf",
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
+                ".png": "image/png"
+            }
+            st.download_button(
+                "Download selected receipt",
+                data=f.read(),
+                file_name=selected_path.name,
+                mime=mime_map.get(suffix, "application/octet-stream")
+            )
 
 with tab5:
     st.subheader("Manual Pick")
     manual_sku = st.text_input("Enter SKU", key="manual_sku")
+
     if manual_sku.strip():
         sku = normalize_sku(manual_sku)
         product_rows = inventory_df[inventory_df["SKU"] == sku].copy()
+
         if product_rows.empty:
             st.warning("SKU not found.")
         else:
             selected_product = product_rows.iloc[0]["Standardized Full Name"]
             st.markdown(f"**{sku} - {selected_product}**")
             product_rows = product_rows.sort_values(["Pick Priority", "Location"])
-            st.dataframe(product_rows[["Location", "Qty", "Stock Type"]], use_container_width=True, hide_index=True)
+            st.dataframe(product_rows[["Location", "Qty", "Stock Type", "Pick Priority"]], use_container_width=True, hide_index=True)
+
             total_available = int(product_rows["Qty"].sum())
             st.caption(f"Total available: {total_available} units")
             manual_qty = st.number_input("Quantity to pick", min_value=1, step=1, value=1, key="manual_qty")
@@ -359,18 +477,20 @@ with tab5:
                         "qty": int(manual_qty),
                         "picks": picks
                     }]
-                    st.success("Manual pick generated.")
+                    st.success("✅ Manual pick generated.")
 
             manual_pick_plan = st.session_state.get("manual_pick_plan", [])
+
             if manual_pick_plan:
                 col_pdf, col_confirm = st.columns(2)
+
                 with col_pdf:
                     if st.button("Generate Receipt PDF for This Pick"):
                         pdf_bytes, missing, included = generate_receipt_pdf_for_picks(manual_pick_plan, inventory_df)
                         if included:
-                            st.success("Included in PDF: " + ", ".join(included))
+                            st.success("✅ Included in PDF: " + ", ".join(included))
                         if missing:
-                            st.warning("No receipt found for SKU(s): " + ", ".join(missing))
+                            st.warning("No DOCX receipt found for SKU(s): " + ", ".join(missing))
                         if pdf_bytes and included:
                             st.download_button(
                                 "Download Printable Receipt PDF",
@@ -379,6 +499,7 @@ with tab5:
                                 mime="application/pdf",
                                 key="manual_pdf_download"
                             )
+
                 with col_confirm:
                     if st.button("Confirm Pick and Deduct Inventory"):
                         updated = inventory_df.copy()
@@ -394,7 +515,8 @@ with tab5:
                                 if idxs:
                                     i = idxs[0]
                                     updated.at[i, "Qty"] = max(0, int(updated.at[i, "Qty"]) - int(p["take"]))
+
                         save_inventory(updated)
-                        st.success("Inventory updated from manual pick.")
+                        st.success("✅ Inventory updated from manual pick.")
                         st.session_state["manual_pick_plan"] = []
                         st.rerun()
