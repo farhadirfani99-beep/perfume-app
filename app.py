@@ -3,8 +3,8 @@ import pandas as pd
 from supabase import create_client
 import re
 import io
+import zipfile
 from pathlib import Path
-from docx import Document
 
 SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
 SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "")
@@ -91,7 +91,7 @@ def list_receipts_from_folder():
     return pd.DataFrame(rows).sort_values(["SKU", "Filename"]).reset_index(drop=True)
 
 
-def generate_receipt_docx_downloads(pick_plan, inventory_df):
+def build_receipt_zip(pick_plan, inventory_df):
     files = []
     missing = []
 
@@ -101,8 +101,7 @@ def generate_receipt_docx_downloads(pick_plan, inventory_df):
         if row_match.empty:
             continue
 
-        stock_type = row_match.iloc[0]["Stock Type"]
-        if stock_type != "Unpackaged":
+        if row_match.iloc[0]["Stock Type"] != "Unpackaged":
             continue
 
         docx_bytes = get_receipt_docx_bytes(sku)
@@ -119,7 +118,15 @@ def generate_receipt_docx_downloads(pick_plan, inventory_df):
             "filename": f"{sku}.docx"
         })
 
-    return files, missing
+    if not files:
+        return None, missing, files
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for f in files:
+            zf.writestr(f["filename"], f["bytes"])
+    buf.seek(0)
+    return buf.getvalue(), missing, files
 
 
 def get_pick_locations(sku, qty_needed, df):
@@ -237,18 +244,16 @@ with tab1:
 
     if pick_plan:
         st.divider()
-        docx_files, missing = generate_receipt_docx_downloads(pick_plan, inventory_df)
+        zip_bytes, missing, docx_files = build_receipt_zip(pick_plan, inventory_df)
 
-        if docx_files:
-            st.success("✅ Receipt DOCX files ready for download.")
-            for f in docx_files:
-                st.download_button(
-                    label=f"Download {f['sku']} - {f['name']} x{f['qty']} (DOCX)",
-                    data=f["bytes"],
-                    file_name=f["filename"],
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    key=f"pick_docx_{f['sku']}_{f['qty']}"
-                )
+        if docx_files and zip_bytes:
+            st.success("✅ Receipt ZIP ready for download.")
+            st.download_button(
+                label=f"Download all receipts ({len(docx_files)})",
+                data=zip_bytes,
+                file_name="receipts_to_print.zip",
+                mime="application/zip"
+            )
 
         if missing:
             st.warning("No DOCX receipt found for SKU(s): " + ", ".join(missing))
@@ -426,20 +431,19 @@ with tab5:
             manual_pick_plan = st.session_state.get("manual_pick_plan", [])
 
             if manual_pick_plan:
-                col_docx, col_confirm = st.columns(2)
+                col_zip, col_confirm = st.columns(2)
 
-                with col_docx:
-                    docx_files, missing = generate_receipt_docx_downloads(manual_pick_plan, inventory_df)
-                    if docx_files:
-                        st.success("✅ Receipt DOCX file ready for download.")
-                        for f in docx_files:
-                            st.download_button(
-                                label=f"Download {f['sku']} - {f['name']} (DOCX)",
-                                data=f["bytes"],
-                                file_name=f["filename"],
-                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                key=f"manual_docx_{f['sku']}"
-                            )
+                with col_zip:
+                    zip_bytes, missing, docx_files = build_receipt_zip(manual_pick_plan, inventory_df)
+                    if docx_files and zip_bytes:
+                        st.success("✅ Receipt ZIP ready for download.")
+                        st.download_button(
+                            label=f"Download all receipts ({len(docx_files)})",
+                            data=zip_bytes,
+                            file_name="manual_pick_receipts.zip",
+                            mime="application/zip",
+                            key="manual_zip_download"
+                        )
                     if missing:
                         st.warning("No DOCX receipt found for SKU(s): " + ", ".join(missing))
 
