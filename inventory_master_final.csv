@@ -1,78 +1,78 @@
-Location,As Entered,Standardized Full Name,Qty,Needs Confirmation,Stock Type,Pick Priority,Status
-Location 1 - Next to cabinet,Eros Flame,Versace Eros Flame,3,FALSE,Packaged,1,Confirmed
-Location 1 - Next to cabinet,Intensly,Intensly,4,FALSE,Packaged,1,Confirmed
-Location 1 - Next to cabinet,Creed Aventus,Creed Aventus,8,FALSE,Packaged,1,Confirmed
-Location 1 - Next to cabinet,Eros Flame,Versace Eros Flame,3,FALSE,Packaged,1,Confirmed
-Location 1 - Next to cabinet,Chanel Paris,Chanel Paris,5,FALSE,Packaged,1,Confirmed
-Location 1 - Next to cabinet,Coco M,Chanel Coco Mademoiselle,5,FALSE,Packaged,1,Confirmed
-Location 1 - Next to cabinet,Myself,Yves Saint Laurent MYSLF,6,FALSE,Packaged,1,Confirmed
-Location 1 - Next to cabinet,BDC EDP,Bleu de Chanel EDP,8,FALSE,Packaged,1,Confirmed
-Location 1 - Next to cabinet,Libre Le Perfume,Yves Saint Laurent Libre Le Parfum,6,FALSE,Packaged,1,Confirmed
-Location 1 - Next to cabinet,BDC EDT,Bleu de Chanel EDT,6,FALSE,Packaged,1,Confirmed
-Location 1 - Next to cabinet,YSL La Nuit,YSL La Nuit,5,FALSE,Packaged,1,Confirmed
-Location 2 - On the table,Louis Vuitton Ombre Nomade,Louis Vuitton Ombre Nomade,1,FALSE,Packaged,1,Confirmed
-Location 2 - On the table,Eros EDP,Versace Eros EDP,2,FALSE,Packaged,1,Confirmed
-Location 2 - On the table,Chanel Chance,Chanel Chance,3,FALSE,Packaged,1,Confirmed
-Location 2 - On the table,Si Passion,Giorgio Armani Si Passione,3,FALSE,Packaged,1,Confirmed
-Location 2 - On the table,GC Flora,Gucci Flora,2,FALSE,Packaged,1,Confirmed
-Location 2 - On the table,Si Intense EDP,Giorgio Armani Si Intense EDP,2,FALSE,Packaged,1,Confirmed
-Location 2 - On the table,Valentino,Valentino,2,FALSE,Packaged,1,Confirmed
-Location 2 - On the table,Yellow Dream,Yellow Dream,2,FALSE,Packaged,1,Confirmed
-Location 3 - Next to wall,Dior Sauvage,Dior Sauvage,5,FALSE,Packaged,1,Confirmed
-Location 3 - Next to wall,1 Million,Paco Rabanne 1 Million,3,FALSE,Packaged,1,Confirmed
-Location 3 - Next to wall,Dior Homme,Dior Homme,3,FALSE,Packaged,1,Confirmed
-Location 3 - Next to wall,mancera cederat boise edp,mancera cederat boise edp,2,FALSE,Packaged,1,Confirmed
-Location 3 - Next to wall,Reb Tobacco,Reb Tobacco,4,FALSE,Packaged,1,Confirmed
-Location 3 - Next to wall,GC Flora,Gucci Flora,1,FALSE,Packaged,1,Confirmed
-Location 3 - Next to wall,Bloom Perfum,Bloom Perfum,1,FALSE,Packaged,1,Confirmed
-Location 3 - Next to wall,Spice Bomb,Viktor & Rolf Spicebomb,1,FALSE,Packaged,1,Confirmed
-Location 3 - Next to wall,Libre EDP,Yves Saint Laurent Libre EDP,1,FALSE,Packaged,1,Confirmed
-Location 3 - Next to wall,Dolce,Dolce,3,FALSE,Packaged,1,Confirmed
-Location 3 - Next to wall,Dolce EDT,Dolce EDT,1,FALSE,Packaged,1,Confirmed
-Location 3 - Next to wall,Jadore,Dior J'adore,1,FALSE,Packaged,1,Confirmed
-Box 1,Creed Aventus,Creed Aventus,11,FALSE,Unpackaged,2,Confirmed
-Box 1,Chanel Chance,Chanel Chance,5,FALSE,Unpackaged,2,Confirmed
-Box 1,Initio,Initio,3,FALSE,Unpackaged,2,Confirmed
-Box 1,Black Afghana,Black Afghana,4,FALSE,Unpackaged,2,Confirmed
-Box 2,Tom Ford Vanilla Tobacco,Tom Ford Tobacco Vanille,12,FALSE,Unpackaged,2,Confirmed
-Box 2,Tom Ford Oud Wood,Tom Ford Oud Wood,12,FALSE,Unpackaged,2,Confirmed
-Box 2,Bvlgari Man Wood Essence,Bvlgari Man Wood Essence,2,FALSE,Unpackaged,2,Confirmed
-Box 3,Bvlgari Rose Goldea,Bvlgari Rose Goldea,3,FALSE,Unpackaged,2,Confirmed
-Box 3,Miss Dior,Miss Dior,4,FALSE,Unpackaged,2,Confirmed
-Box 3,Tom Ford Black Orchid,Tom Ford Black Orchid,3,FALSE,Unpackaged,2,Confirmed
-Box 3,Million Lucky Paco Rabanne,Paco Rabanne 1 Million Lucky,3,FALSE,Unpackaged,2,Confirmed
-Box 3,Intensly,Intensly,1,FALSE,Unpackaged,2,Confirmed
-Box 4,Dior Pure Poison,Dior Pure Poison,6,FALSE,Unpackaged,2,Confirmed
-Box 4,Maison Margiela Replica,Maison Margiela Replica,3,FALSE,Unpackaged,2,Confirmed
-Box 5,Jean Paul Gaultier Le Male,Jean Paul Gaultier Le Male,8,FALSE,Unpackaged,2,Confirmed
-Box 6,Azzaro The Most Wanted,Azzaro The Most Wanted,3,FALSE,Unpackaged,2,Confirmed
-Box 6,Dolce & Gabbana The One EDP,Dolce & Gabbana The One EDP,3,FALSE,Unpackaged,2,Confirmed
-Box 6,Armani Code,Giorgio Armani Code,4,FALSE,Unpackaged,2,Confirmed
-Box 7,Dior Dune,Dior Dune,12,FALSE,Unpackaged,2,Confirmed
-Box 8,Myslf,Yves Saint Laurent MYSLF,9,FALSE,Unpackaged,2,Confirmed
-Box 8,Jean Paul Gaultier Classic,Jean Paul Gaultier Le Classique,2,FALSE,Unpackaged,2,Confirmed
-Box 9,Versace Eros Flame,Versace Eros Flame,3,FALSE,Unpackaged,2,Confirmed
-Box 9,Jadore,Dior J'adore,4,FALSE,Unpackaged,2,Confirmed
-Box 9,Nishane,Nishane,2,FALSE,Unpackaged,2,Confirmed
-Box 9,Maison Francis Kurkdjian Baccarat Rouge 540,Maison Francis Kurkdjian Baccarat Rouge 540,12,FALSE,Unpackaged,2,Confirmed
-Box 10,Yves Saint Laurent Libre EDP,Yves Saint Laurent Libre EDP,12,FALSE,Unpackaged,2,Confirmed
-Box 11,Tom Ford Bitter Peach,Tom Ford Bitter Peach,6,FALSE,Unpackaged,2,Confirmed
-Box 11,Tom Ford Lost Cherry,Tom Ford Lost Cherry,6,FALSE,Unpackaged,2,Confirmed
-Box 11,Tom Ford Noir de Noir,Tom Ford Noir de Noir,3,FALSE,Unpackaged,2,Confirmed
-Box 11,Tom Ford Ombre Leather,Tom Ford Ombre Leather,7,FALSE,Unpackaged,2,Confirmed
-Box 11,Giorgio Armani My Way,Giorgio Armani My Way,6,FALSE,Unpackaged,2,Confirmed
-Box 11,Yellow Dream,Yellow Dream,3,FALSE,Unpackaged,2,Confirmed
-Box 11,L'Interdit Givenchy,Givenchy L'Interdit,2,FALSE,Unpackaged,2,Confirmed
-Box 12,Louis Vuitton Ombre Nomade,Louis Vuitton Ombre Nomade,24,FALSE,Unpackaged,2,Confirmed
-Box 13,chanel gabrielle edp,chanel gabrielle edp,6,FALSE,Unpackaged,2,Confirmed
-Box 13,bvlagri splendida jasmin noir,bvlagri splendida jasmin noir,3,FALSE,Unpackaged,2,Confirmed
-Box 14,chanel coco noir edp,chanel coco noir edp,3,FALSE,Unpackaged,2,Confirmed
-Box 14,chanel coco edp,chanel coco edp,6,FALSE,Unpackaged,2,Confirmed
-Box 14,Chanel Coco M,Chanel Coco Mademoiselle,6,FALSE,Unpackaged,2,Confirmed
-Cabinet,Dior Sauvage elixir,Dior Sauvage elixir,37,FALSE,Unpackaged,2,Confirmed
-Tub,Polo Track Size M,Ralph Lauren Polo Track (Size M),2,FALSE,Unpackaged,2,Confirmed
-Tub,Polo Track Size L,Ralph Lauren Polo Track (Size L),1,FALSE,Unpackaged,2,Confirmed
-Tub,versace dylan turqoise,versace dylan turqoise,1,FALSE,Unpackaged,2,Confirmed
-Tub,Artegery Jacket Large,Artegery Jacket Large,1,FALSE,Unpackaged,2,Confirmed
-Tub,Jean Paul Gaultier Ultra Male,Jean Paul Gaultier Ultra Male,7,FALSE,Unpackaged,2,Confirmed
-Tub,North Face Side Medium,North Face Side Medium,2,FALSE,Unpackaged,2,Confirmed
+SKU,Location,As Entered,Standardized Full Name,Qty,Needs Confirmation,Stock Type,Pick Priority,Status
+053,Location 1 - Next to cabinet,Eros Flame,Versace Eros Flame,3,False,Packaged,1,Confirmed
+029,Location 1 - Next to cabinet,Intensly,Intensly,4,False,Packaged,1,Confirmed
+012,Location 1 - Next to cabinet,Creed Aventus,Creed Aventus,8,False,Packaged,1,Confirmed
+053,Location 1 - Next to cabinet,Eros Flame,Versace Eros Flame,3,False,Packaged,1,Confirmed
+011,Location 1 - Next to cabinet,Chanel Paris,Chanel Paris,5,False,Packaged,1,Confirmed
+010,Location 1 - Next to cabinet,Coco M,Chanel Coco Mademoiselle,5,False,Packaged,1,Confirmed
+059,Location 1 - Next to cabinet,Myself,Yves Saint Laurent MYSLF,6,False,Packaged,1,Confirmed
+004,Location 1 - Next to cabinet,BDC EDP,Bleu de Chanel EDP,8,False,Packaged,1,Confirmed
+058,Location 1 - Next to cabinet,Libre Le Perfume,Yves Saint Laurent Libre Le Parfum,6,False,Packaged,1,Confirmed
+005,Location 1 - Next to cabinet,BDC EDT,Bleu de Chanel EDT,6,False,Packaged,1,Confirmed
+055,Location 1 - Next to cabinet,YSL La Nuit,YSL La Nuit,5,False,Packaged,1,Confirmed
+033,Location 2 - On the table,Louis Vuitton Ombre Nomade,Louis Vuitton Ombre Nomade,1,False,Packaged,1,Confirmed
+052,Location 2 - On the table,Eros EDP,Versace Eros EDP,2,False,Packaged,1,Confirmed
+009,Location 2 - On the table,Chanel Chance,Chanel Chance,3,False,Packaged,1,Confirmed
+025,Location 2 - On the table,Si Passion,Giorgio Armani Si Passione,3,False,Packaged,1,Confirmed
+027,Location 2 - On the table,GC Flora,Gucci Flora,2,False,Packaged,1,Confirmed
+024,Location 2 - On the table,Si Intense EDP,Giorgio Armani Si Intense EDP,2,False,Packaged,1,Confirmed
+051,Location 2 - On the table,Valentino,Valentino,2,False,Packaged,1,Confirmed
+056,Location 2 - On the table,Yellow Dream,Yellow Dream,2,False,Packaged,1,Confirmed
+017,Location 3 - Next to wall,Dior Sauvage,Dior Sauvage,5,False,Packaged,1,Confirmed
+039,Location 3 - Next to wall,1 Million,Paco Rabanne 1 Million,3,False,Packaged,1,Confirmed
+014,Location 3 - Next to wall,Dior Homme,Dior Homme,3,False,Packaged,1,Confirmed
+064,Location 3 - Next to wall,mancera cederat boise edp,mancera cederat boise edp,2,False,Packaged,1,Confirmed
+043,Location 3 - Next to wall,Reb Tobacco,Reb Tobacco,4,False,Packaged,1,Confirmed
+027,Location 3 - Next to wall,GC Flora,Gucci Flora,1,False,Packaged,1,Confirmed
+006,Location 3 - Next to wall,Bloom Perfum,Bloom Perfum,1,False,Packaged,1,Confirmed
+054,Location 3 - Next to wall,Spice Bomb,Viktor & Rolf Spicebomb,1,False,Packaged,1,Confirmed
+057,Location 3 - Next to wall,Libre EDP,Yves Saint Laurent Libre EDP,1,False,Packaged,1,Confirmed
+019,Location 3 - Next to wall,Dolce,Dolce,3,False,Packaged,1,Confirmed
+021,Location 3 - Next to wall,Dolce EDT,Dolce EDT,1,False,Packaged,1,Confirmed
+015,Location 3 - Next to wall,Jadore,Dior J'adore,1,False,Packaged,1,Confirmed
+012,Box 1,Creed Aventus,Creed Aventus,11,False,Unpackaged,2,Confirmed
+009,Box 1,Chanel Chance,Chanel Chance,5,False,Unpackaged,2,Confirmed
+028,Box 1,Initio,Initio,3,False,Unpackaged,2,Confirmed
+003,Box 1,Black Afghana,Black Afghana,4,False,Unpackaged,2,Confirmed
+050,Box 2,Tom Ford Vanilla Tobacco,Tom Ford Tobacco Vanille,12,False,Unpackaged,2,Confirmed
+049,Box 2,Tom Ford Oud Wood,Tom Ford Oud Wood,12,False,Unpackaged,2,Confirmed
+007,Box 2,Bvlgari Man Wood Essence,Bvlgari Man Wood Essence,2,False,Unpackaged,2,Confirmed
+008,Box 3,Bvlgari Rose Goldea,Bvlgari Rose Goldea,3,False,Unpackaged,2,Confirmed
+036,Box 3,Miss Dior,Miss Dior,4,False,Unpackaged,2,Confirmed
+045,Box 3,Tom Ford Black Orchid,Tom Ford Black Orchid,3,False,Unpackaged,2,Confirmed
+040,Box 3,Million Lucky Paco Rabanne,Paco Rabanne 1 Million Lucky,3,False,Unpackaged,2,Confirmed
+029,Box 3,Intensly,Intensly,1,False,Unpackaged,2,Confirmed
+016,Box 4,Dior Pure Poison,Dior Pure Poison,6,False,Unpackaged,2,Confirmed
+035,Box 4,Maison Margiela Replica,Maison Margiela Replica,3,False,Unpackaged,2,Confirmed
+031,Box 5,Jean Paul Gaultier Le Male,Jean Paul Gaultier Le Male,8,False,Unpackaged,2,Confirmed
+002,Box 6,Azzaro The Most Wanted,Azzaro The Most Wanted,3,False,Unpackaged,2,Confirmed
+020,Box 6,Dolce & Gabbana The One EDP,Dolce & Gabbana The One EDP,3,False,Unpackaged,2,Confirmed
+022,Box 6,Armani Code,Giorgio Armani Code,4,False,Unpackaged,2,Confirmed
+013,Box 7,Dior Dune,Dior Dune,12,False,Unpackaged,2,Confirmed
+059,Box 8,Myslf,Yves Saint Laurent MYSLF,9,False,Unpackaged,2,Confirmed
+030,Box 8,Jean Paul Gaultier Classic,Jean Paul Gaultier Le Classique,2,False,Unpackaged,2,Confirmed
+053,Box 9,Versace Eros Flame,Versace Eros Flame,3,False,Unpackaged,2,Confirmed
+015,Box 9,Jadore,Dior J'adore,4,False,Unpackaged,2,Confirmed
+037,Box 9,Nishane,Nishane,2,False,Unpackaged,2,Confirmed
+034,Box 9,Maison Francis Kurkdjian Baccarat Rouge 540,Maison Francis Kurkdjian Baccarat Rouge 540,12,False,Unpackaged,2,Confirmed
+057,Box 10,Yves Saint Laurent Libre EDP,Yves Saint Laurent Libre EDP,12,False,Unpackaged,2,Confirmed
+044,Box 11,Tom Ford Bitter Peach,Tom Ford Bitter Peach,6,False,Unpackaged,2,Confirmed
+046,Box 11,Tom Ford Lost Cherry,Tom Ford Lost Cherry,6,False,Unpackaged,2,Confirmed
+047,Box 11,Tom Ford Noir de Noir,Tom Ford Noir de Noir,3,False,Unpackaged,2,Confirmed
+048,Box 11,Tom Ford Ombre Leather,Tom Ford Ombre Leather,7,False,Unpackaged,2,Confirmed
+023,Box 11,Giorgio Armani My Way,Giorgio Armani My Way,6,False,Unpackaged,2,Confirmed
+056,Box 11,Yellow Dream,Yellow Dream,3,False,Unpackaged,2,Confirmed
+026,Box 11,L'Interdit Givenchy,Givenchy L'Interdit,2,False,Unpackaged,2,Confirmed
+033,Box 12,Louis Vuitton Ombre Nomade,Louis Vuitton Ombre Nomade,24,False,Unpackaged,2,Confirmed
+063,Box 13,chanel gabrielle edp,chanel gabrielle edp,6,False,Unpackaged,2,Confirmed
+060,Box 13,bvlagri splendida jasmin noir,bvlagri splendida jasmin noir,3,False,Unpackaged,2,Confirmed
+062,Box 14,chanel coco noir edp,chanel coco noir edp,3,False,Unpackaged,2,Confirmed
+061,Box 14,chanel coco edp,chanel coco edp,6,False,Unpackaged,2,Confirmed
+010,Box 14,Chanel Coco M,Chanel Coco Mademoiselle,6,False,Unpackaged,2,Confirmed
+018,Cabinet,Dior Sauvage elixir,Dior Sauvage elixir,37,False,Unpackaged,2,Confirmed
+042,Tub,Polo Track Size M,Ralph Lauren Polo Track (Size M),2,False,Unpackaged,2,Confirmed
+041,Tub,Polo Track Size L,Ralph Lauren Polo Track (Size L),1,False,Unpackaged,2,Confirmed
+065,Tub,versace dylan turqoise,versace dylan turqoise,1,False,Unpackaged,2,Confirmed
+001,Tub,Artegery Jacket Large,Artegery Jacket Large,1,False,Unpackaged,2,Confirmed
+032,Tub,Jean Paul Gaultier Ultra Male,Jean Paul Gaultier Ultra Male,7,False,Unpackaged,2,Confirmed
+038,Tub,North Face Side Medium,North Face Side Medium,2,False,Unpackaged,2,Confirmed
