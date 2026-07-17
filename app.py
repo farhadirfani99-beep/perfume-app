@@ -2,21 +2,12 @@ import streamlit as st
 import pandas as pd
 import re
 import io
+import zipfile
 from pathlib import Path
-from docx import Document
-from reportlab.pdfgen import canvas
-from reportlab.lib.units import mm as mm_unit
-from pypdf import PdfWriter, PdfReader
 
 INVENTORY_FILE = "inventory_master_final.csv"
 RECEIPTS_DIR = Path("receipts")
 RECEIPTS_DIR.mkdir(exist_ok=True)
-
-RECEIPT_WIDTH_MM = 80
-RECEIPT_WIDTH_PT = RECEIPT_WIDTH_MM * mm_unit
-LINE_HEIGHT = 12
-FONT_SIZE = 9
-MARGIN = 10
 
 st.set_page_config(page_title="Perfume Inventory & Pick Assistant", layout="wide")
 
@@ -84,33 +75,6 @@ def get_pick_locations(sku, qty_needed, df):
     return picks
 
 
-def extract_docx_lines(docx_bytes):
-    doc = Document(io.BytesIO(docx_bytes))
-    lines = []
-    for para in doc.paragraphs:
-        text = para.text.strip()
-        if text:
-            lines.append(text)
-    return lines
-
-
-def build_receipt_pdf_bytes(lines):
-    height_pt = MARGIN * 2 + LINE_HEIGHT * (len(lines) + 2)
-    buf = io.BytesIO()
-    c = canvas.Canvas(buf, pagesize=(RECEIPT_WIDTH_PT, height_pt))
-    c.setFont("Helvetica", FONT_SIZE)
-    y = height_pt - MARGIN - LINE_HEIGHT
-
-    for line in lines:
-        c.drawString(MARGIN, y, line[:60])
-        y -= LINE_HEIGHT
-
-    c.showPage()
-    c.save()
-    buf.seek(0)
-    return buf.read(), height_pt
-
-
 def load_receipts_from_directory():
     rows = []
     for ext in ["*.docx", "*.pdf"]:
@@ -129,18 +93,12 @@ def load_receipts_from_directory():
     return pd.DataFrame(rows).sort_values(["sku", "filename"]).reset_index(drop=True)
 
 
-def get_receipt_bytes_and_type(sku):
+def get_receipt_docx_path(sku):
     sku = normalize_sku(sku)
-
-    docx_path = RECEIPTS_DIR / f"{sku}.docx"
-    if docx_path.exists():
-        return docx_path.read_bytes(), "docx"
-
-    pdf_path = RECEIPTS_DIR / f"{sku}.pdf"
-    if pdf_path.exists():
-        return pdf_path.read_bytes(), "pdf"
-
-    return None, None
+    path = RECEIPTS_DIR / f"{sku}.docx"
+    if path.exists():
+        return path
+    return None
 
 
 def save_uploaded_receipts(uploaded_files):
@@ -167,48 +125,41 @@ def save_uploaded_receipts(uploaded_files):
     return saved, skipped
 
 
-def generate_receipt_pdf_for_picks(pick_plan, inventory_df):
-    output_writer = PdfWriter()
+def generate_receipt_zip_for_picks(pick_plan, inventory_df):
     missing = []
     included = []
+    zip_buffer = io.BytesIO()
 
-    for item in pick_plan:
-        sku = normalize_sku(item["sku"])
-        row_match = inventory_df[inventory_df["SKU"].astype(str).str.zfill(3) == sku]
-        if row_match.empty:
-            continue
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for item in pick_plan:
+            sku = normalize_sku(item["sku"])
+            row_match = inventory_df[inventory_df["SKU"].astype(str).str.zfill(3) == sku]
+            if row_match.empty:
+                continue
 
-        unpackaged_picks = [p for p in item["picks"] if p["stock_type"] == "Unpackaged"]
-        copies_needed = sum(int(p["take"]) for p in unpackaged_picks)
-        if copies_needed <= 0:
-            continue
+            unpackaged_picks = [p for p in item["picks"] if p["stock_type"] == "Unpackaged"]
+            copies_needed = sum(int(p["take"]) for p in unpackaged_picks)
+            if copies_needed <= 0:
+                continue
 
-        receipt_bytes, file_type = get_receipt_bytes_and_type(sku)
-        if not receipt_bytes:
-            missing.append(sku)
-            continue
+            docx_path = get_receipt_docx_path(sku)
+            if not docx_path:
+                missing.append(sku)
+                continue
 
-        if file_type != "docx":
-            missing.append(f"{sku} (receipt is not DOCX)")
-            continue
+            docx_bytes = docx_path.read_bytes()
+            name = row_match.iloc[0]["Standardized Full Name"]
 
-        lines = extract_docx_lines(receipt_bytes)
-        pdf_bytes, _ = build_receipt_pdf_bytes(lines)
-        reader = PdfReader(io.BytesIO(pdf_bytes))
+            for copy_num in range(1, copies_needed + 1):
+                zf.writestr(f"{sku}_copy{copy_num}.docx", docx_bytes)
 
-        for _ in range(copies_needed):
-            for page in reader.pages:
-                output_writer.add_page(page)
-
-        name = row_match.iloc[0]["Standardized Full Name"]
-        included.append(f"{sku} - {name} x{copies_needed}")
+            included.append(f"{sku} - {name} x{copies_needed}")
 
     if not included:
         return None, missing, included
 
-    buf = io.BytesIO()
-    output_writer.write(buf)
-    return buf.getvalue(), missing, included
+    zip_buffer.seek(0)
+    return zip_buffer.getvalue(), missing, included
 
 
 def get_receipt_print_summary(pick_plan, inventory_df):
@@ -323,21 +274,21 @@ with tab1:
             for _, row in receipt_summary_df.iterrows():
                 st.write(f"- {row['SKU']} - {row['Product']}: print {row['Receipts to Print']}")
 
-        pdf_bytes, missing, included = generate_receipt_pdf_for_picks(pick_plan, inventory_df)
+        zip_bytes, missing, included = generate_receipt_zip_for_picks(pick_plan, inventory_df)
 
         if included:
-            st.success("Receipt file ready for download: " + ", ".join(included))
+            st.success("Receipt files ready for download: " + ", ".join(included))
 
         if missing:
-            st.warning("No receipt found for SKU(s): " + ", ".join(missing))
+            st.warning("No DOCX receipt found for SKU(s): " + ", ".join(missing))
 
-        if pdf_bytes and included:
+        if zip_bytes and included:
             st.download_button(
-                "Download Printable Receipts PDF",
-                data=pdf_bytes,
-                file_name="receipts_to_print.pdf",
-                mime="application/pdf",
-                key="pick_receipt_download"
+                "Download Receipts ZIP (DOCX)",
+                data=zip_bytes,
+                file_name="receipts_to_print.zip",
+                mime="application/zip",
+                key="pick_receipt_zip_download"
             )
 
     if pick_plan:
@@ -447,7 +398,7 @@ with tab3:
 
 with tab4:
     st.subheader("Receipt Directory")
-    st.caption("Receipts load automatically from the local receipts folder. You can also upload multiple PDF or DOCX receipts here using SKU-only filenames like 015.pdf or 015.docx")
+    st.caption("Receipts load automatically from the local receipts folder. You can also upload multiple DOCX receipts here using SKU-only filenames like 015.docx")
 
     uploaded_files = st.file_uploader(
         "Upload receipt files",
@@ -522,9 +473,9 @@ with tab5:
             manual_pick_plan = st.session_state.get("manual_pick_plan", [])
 
             if manual_pick_plan:
-                col_pdf, col_confirm = st.columns(2)
+                col_zip, col_confirm = st.columns(2)
 
-                with col_pdf:
+                with col_zip:
                     receipt_summary_df = get_receipt_print_summary(manual_pick_plan, inventory_df)
                     if not receipt_summary_df.empty:
                         st.info("Receipt print quantities")
@@ -533,21 +484,21 @@ with tab5:
                         for _, row in receipt_summary_df.iterrows():
                             st.write(f"- {row['SKU']} - {row['Product']}: print {row['Receipts to Print']}")
 
-                    pdf_bytes, missing, included = generate_receipt_pdf_for_picks(manual_pick_plan, inventory_df)
+                    zip_bytes, missing, included = generate_receipt_zip_for_picks(manual_pick_plan, inventory_df)
 
                     if included:
-                        st.success("Receipt file ready for download: " + ", ".join(included))
+                        st.success("Receipt files ready for download: " + ", ".join(included))
 
                     if missing:
-                        st.warning("No receipt found for SKU(s): " + ", ".join(missing))
+                        st.warning("No DOCX receipt found for SKU(s): " + ", ".join(missing))
 
-                    if pdf_bytes and included:
+                    if zip_bytes and included:
                         st.download_button(
-                            "Download Printable Receipt PDF",
-                            data=pdf_bytes,
-                            file_name="manual_pick_receipt.pdf",
-                            mime="application/pdf",
-                            key="manual_pdf_download"
+                            "Download Receipts ZIP (DOCX)",
+                            data=zip_bytes,
+                            file_name="manual_pick_receipts.zip",
+                            mime="application/zip",
+                            key="manual_receipt_zip_download"
                         )
 
                 with col_confirm:
