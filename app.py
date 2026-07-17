@@ -1,29 +1,23 @@
 import streamlit as st
 import pandas as pd
-from supabase import create_client
 import re
 import io
-import base64
+from pathlib import Path
 from docx import Document
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import mm as mm_unit
 from pypdf import PdfWriter, PdfReader
 
-SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
-SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "")
+INVENTORY_FILE = "inventory_master_final.csv"
+RECEIPTS_DIR = Path("receipts")
+RECEIPTS_DIR.mkdir(exist_ok=True)
 
 RECEIPT_WIDTH_MM = 80
 RECEIPT_WIDTH_PT = RECEIPT_WIDTH_MM * mm_unit
 LINE_HEIGHT = 12
 FONT_SIZE = 9
 MARGIN = 10
-INVENTORY_FILE = "inventory_master_final.csv"
 
-@st.cache_resource
-def get_client():
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
-
-sb = get_client() if SUPABASE_URL and SUPABASE_KEY else None
 st.set_page_config(page_title="Perfume Inventory & Pick Assistant", layout="wide")
 
 
@@ -32,11 +26,7 @@ def normalize_sku(text):
 
 
 def load_inventory():
-    if sb:
-        res = sb.table("inventory").select("*").execute()
-        df = pd.DataFrame(res.data)
-    else:
-        df = pd.read_csv(INVENTORY_FILE, dtype={"SKU": str})
+    df = pd.read_csv(INVENTORY_FILE, dtype={"SKU": str})
 
     if df.empty:
         return pd.DataFrame(columns=[
@@ -55,21 +45,7 @@ def save_inventory(df):
     df["SKU"] = df["SKU"].astype(str).str.zfill(3)
     df["Qty"] = pd.to_numeric(df["Qty"], errors="coerce").fillna(0).astype(int)
     df["Pick Priority"] = pd.to_numeric(df["Pick Priority"], errors="coerce").fillna(999).astype(int)
-
-    if sb:
-        rows = df.to_dict(orient="records")
-        sb.table("inventory").delete().neq("id", -1).execute()
-        if rows:
-            sb.table("inventory").insert(rows).execute()
-    else:
-        df.to_csv(INVENTORY_FILE, index=False)
-
-
-def load_receipt_index():
-    if not sb:
-        return pd.DataFrame(columns=["sku", "filename", "file_base64", "file_type"])
-    res = sb.table("receipts").select("*").execute()
-    return pd.DataFrame(res.data)
+    df.to_csv(INVENTORY_FILE, index=False)
 
 
 def get_pick_locations(sku, qty_needed, df):
@@ -135,14 +111,60 @@ def build_receipt_pdf_bytes(lines):
     return buf.read(), height_pt
 
 
+def load_receipts_from_directory():
+    rows = []
+    for ext in ["*.docx", "*.pdf"]:
+        for file in RECEIPTS_DIR.glob(ext):
+            sku = normalize_sku(file.stem)
+            rows.append({
+                "sku": sku,
+                "filename": file.name,
+                "file_type": file.suffix.lower().replace(".", ""),
+                "path": str(file)
+            })
+
+    if not rows:
+        return pd.DataFrame(columns=["sku", "filename", "file_type", "path"])
+
+    return pd.DataFrame(rows).sort_values(["sku", "filename"]).reset_index(drop=True)
+
+
 def get_receipt_bytes_and_type(sku):
-    if not sb:
-        return None, None
-    res = sb.table("receipts").select("*").eq("sku", normalize_sku(sku)).execute()
-    if not res.data:
-        return None, None
-    row = res.data[0]
-    return base64.b64decode(row["file_base64"]), row.get("file_type", "docx")
+    sku = normalize_sku(sku)
+
+    docx_path = RECEIPTS_DIR / f"{sku}.docx"
+    if docx_path.exists():
+        return docx_path.read_bytes(), "docx"
+
+    pdf_path = RECEIPTS_DIR / f"{sku}.pdf"
+    if pdf_path.exists():
+        return pdf_path.read_bytes(), "pdf"
+
+    return None, None
+
+
+def save_uploaded_receipts(uploaded_files):
+    saved = []
+    skipped = []
+
+    for uploaded in uploaded_files:
+        suffix = uploaded.name.split(".")[-1].lower()
+        stem = uploaded.name.rsplit(".", 1)[0].strip()
+
+        if suffix not in ["pdf", "docx"]:
+            skipped.append(uploaded.name)
+            continue
+
+        if not stem.isdigit():
+            skipped.append(uploaded.name)
+            continue
+
+        sku = normalize_sku(stem)
+        out_path = RECEIPTS_DIR / f"{sku}.{suffix}"
+        out_path.write_bytes(uploaded.read())
+        saved.append(out_path.name)
+
+    return saved, skipped
 
 
 def generate_receipt_pdf_for_picks(pick_plan, inventory_df):
@@ -189,47 +211,6 @@ def generate_receipt_pdf_for_picks(pick_plan, inventory_df):
     return buf.getvalue(), missing, included
 
 
-def parse_pick_line(line):
-    m = re.match(r"\s*(\d{1,3})\s*[-–—:]?\s*(\d+)\s*unit", line, re.IGNORECASE)
-    if not m:
-        m = re.match(r"\s*(\d{1,3})\s+(\d+)\s*unit", line, re.IGNORECASE)
-    if not m:
-        return None
-    return normalize_sku(m.group(1)), int(m.group(2))
-
-
-def save_uploaded_receipts(uploaded_files):
-    saved = []
-    skipped = []
-
-    for uploaded in uploaded_files:
-        suffix = uploaded.name.split(".")[-1].lower()
-        stem = uploaded.name.rsplit(".", 1)[0].strip()
-
-        if suffix not in ["pdf", "docx"]:
-            skipped.append(uploaded.name)
-            continue
-
-        if not stem.isdigit():
-            skipped.append(uploaded.name)
-            continue
-
-        sku = normalize_sku(stem)
-        encoded = base64.b64encode(uploaded.read()).decode("utf-8")
-
-        if sb:
-            sb.table("receipts").upsert({
-                "sku": sku,
-                "filename": uploaded.name,
-                "file_base64": encoded,
-                "file_type": suffix
-            }).execute()
-
-        saved.append(f"{sku}.{suffix}")
-
-    return saved, skipped
-
-
 def get_receipt_print_summary(pick_plan, inventory_df):
     summary = []
 
@@ -250,6 +231,15 @@ def get_receipt_print_summary(pick_plan, inventory_df):
             })
 
     return pd.DataFrame(summary)
+
+
+def parse_pick_line(line):
+    m = re.match(r"\s*(\d{1,3})\s*[-–—:]?\s*(\d+)\s*unit", line, re.IGNORECASE)
+    if not m:
+        m = re.match(r"\s*(\d{1,3})\s+(\d+)\s*unit", line, re.IGNORECASE)
+    if not m:
+        return None
+    return normalize_sku(m.group(1)), int(m.group(2))
 
 
 st.title("Perfume Inventory & Pick Assistant")
@@ -457,7 +447,7 @@ with tab3:
 
 with tab4:
     st.subheader("Receipt Directory")
-    st.caption("Upload multiple PDF or DOCX receipts at once. File names must be SKU only, like 015.pdf or 015.docx")
+    st.caption("Receipts load automatically from the local receipts folder. You can also upload multiple PDF or DOCX receipts here using SKU-only filenames like 015.pdf or 015.docx")
 
     uploaded_files = st.file_uploader(
         "Upload receipt files",
@@ -469,20 +459,25 @@ with tab4:
         if st.button("Save uploaded receipt files"):
             saved, skipped = save_uploaded_receipts(uploaded_files)
             if saved:
-                st.success("✅ Saved: " + ", ".join(saved))
+                st.success("✅ Saved to receipts folder: " + ", ".join(saved))
             if skipped:
                 st.warning("Skipped: " + ", ".join(skipped))
             st.rerun()
 
-    receipts_df = load_receipt_index()
+    receipts_df = load_receipts_from_directory()
 
     if receipts_df.empty:
-        st.info("No receipts uploaded yet.")
+        st.info("No receipts found in the receipts folder.")
     else:
         display_df = receipts_df.copy()
         display_df["sku"] = display_df["sku"].astype(str).str.zfill(3)
+        display_df["Matched Product"] = display_df["sku"].map(
+            inventory_df.drop_duplicates("SKU").set_index("SKU")["Standardized Full Name"]
+        ).fillna("Unmatched SKU")
+
+        st.success(f"✅ {len(display_df)} receipt file(s) loaded automatically from the receipts folder.")
         st.dataframe(
-            display_df[["sku", "filename", "file_type"]],
+            display_df[["sku", "Matched Product", "filename", "file_type"]],
             use_container_width=True,
             hide_index=True
         )
