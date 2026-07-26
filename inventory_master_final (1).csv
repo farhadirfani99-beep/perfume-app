@@ -1,0 +1,93 @@
+SKU,Location,As Entered,Standardized Full Name,Qty,Needs Confirmation,Stock Type,Pick Priority,Status
+vef,Box 3,Eros Flame,Versace Eros Flame,3,FALSE,Packaged,1,Confirmed
+int,Box 3,Intensly,Intensly,4,FALSE,Packaged,1,Confirmed
+cav,Box 1,Creed Aventus,Creed Aventus,8,FALSE,Packaged,1,Confirmed
+ , , , , , , , , 
+par,Box 1,Chanel Paris,Chanel No 5,5,FALSE,Packaged,1,Confirmed
+ccm,Box 2,Coco M,Chanel Coco Mademoiselle,0,FALSE,Packaged,1,Confirmed
+yslm,Box 2,Myself,YSL Myslf,5,FALSE,Packaged,1,Confirmed
+bdcedp,Box 1,BDC EDP,Bleu de Chanel EDP,7,FALSE,Packaged,1,Confirmed
+llp,Box 2,Libre Le Perfume,YSL Libre Le Parfum,6,FALSE,Packaged,1,Confirmed
+bdcedt,Box 1,BDC EDT,Bleu de Chanel EDT,5,FALSE,Packaged,1,Confirmed
+yslln,Box 2,YSL La Nuit,YSL La Nuit,3,FALSE,Packaged,1,Confirmed
+lvon,Box 7,Louis Vuitton Ombre Nomade,Louis Vuitton Ombre Nomade,1,FALSE,Packaged,1,Confirmed
+veedp,Box 3,Eros EDP,Versace Eros EDP,0,FALSE,Packaged,1,Confirmed
+cce,Box 4,Chanel Chance,Chanel Chance,2,FALSE,Packaged,1,Confirmed
+gasp,Box 3,Si Passion,Giorgio Armani Si Passione,2,FALSE,Packaged,1,Confirmed
+gcf,Box 4,GC Flora,Gucci Flora,3,FALSE,Packaged,1,Confirmed
+gasi,Box 3,Si Intense EDP,Giorgio Armani Si Intense EDP,1,FALSE,Packaged,1,Confirmed
+val,Box 2,Valentino,Valentino EDP,2,FALSE,Packaged,1,Confirmed
+vyd,Box 3,Yellow Dream,Yellow Dream,1,FALSE,Packaged,1,Confirmed
+dse,Tub 2,Dior Sauvage,Dior Sauvage Elixir,0,FALSE,Packaged,1,Confirmed
+omedt,Box 2,1 Million,Paco Rabanne 1 Million EDT,0,FALSE,Packaged,1,Confirmed
+dhi,Box 2,Dior Homme,Dior Homme,2,FALSE,Packaged,1,Confirmed
+mcb,Box 1,mancera cederat boise edp,mancera cederat boise edp,2,FALSE,Packaged,1,Confirmed
+mrt,Box 1,Red Tobacco,Mancera Red Tobacco,4,FALSE,Packaged,1,Confirmed
+ , , , , , , , , 
+gbp,Box 4,Bloom Perfum,Gucci Bloom Perfum,1,FALSE,Packaged,1,Confirmed
+sbe,Box 7,Spice Bomb,Viktor & Rolf Spicebomb,0,FALSE,Packaged,1,Confirmed
+ledp,Box 2,Libre EDP,YSL Libre EDP,1,FALSE,Packaged,1,Confirmed
+dedp, ,Dolce & Gabbana The One EDP,Dolce & Gabbana The One EDP, ,FALSE,Packaged,1,Confirmed
+dedt,Box 1,Dolce EDT,Dolce & Gabbana The One EDT,2,FALSE,Packaged,1,Confirmed
+dj,Tub 2,Jadore,Dior Jadore,0,FALSE,Packaged,1,Confirmed
+cav,Tub 1,Creed Aventus,Creed Aventus,11,FALSE,Unpackaged,2,Confirmed
+cce,Tub 1,Chanel Chance,Chanel Chance,5,FALSE,Unpackaged,2,Confirmed
+iof,Tub 1,Initio,Initio Oud For Greatness,3,FALSE,Unpackaged,2,Confirmed
+nba,Tub 1,Black Afghana,Black Afgano,3,FALSE,Unpackaged,2,Confirmed
+tftv,Box 8,Tom Ford Vanilla Tobacco,Tom Ford Tobacco Vanille,12,FALSE,Unpackaged,2,Confirmed
+tfow,Box 8,Tom Ford Oud Wood,Tom Ford Oud Wood,12,FALSE,Unpackaged,2,Confirmed
+bmw,Box 8,Bvlgari Man Wood Essence,Bvlgari Man Wood Essence,0,FALSE,Unpackaged,2,Confirmed
+brg,Tub 1,Bvlgari Rose Goldea,Bvlgari Rose Goldea,1,FALSE,Unpackaged,2,Confirmed
+md,Tub 1,Miss Dior,Miss Dior Blooming Bouquet,4,FALSE,Unpackaged,2,Confirmed
+tfbo,Tub 1,Tom Ford Black Orchid,Tom Ford Black Orchid,3,FALSE,Unpackaged,2,Confirmed
+oml,Tub 2,Million Lucky Paco Rabanne,Paco Rabanne 1 Million Lucky,3,FALSE,Unpackaged,2,Confirmed
+int,Cabinet,Intensly,Intensly,13,FALSE,Unpackaged,2,Confirmed
+dpp,Box 5,Dior Pure Poison,Dior Pure Poison,5,FALSE,Unpackaged,2,Confirmed
+mmr,Box 6,Maison Margiela Replica,Maison Margiela Replica,2,FALSE,Unpackaged,2,Confirmed
+jpglm,Tub 2,Jean Paul Gaultier Le Male,Jean Paul Gaultier Le Male,8,FALSE,Unpackaged,2,Confirmed
+atmw, ,Azzaro The Most Wanted,Azzaro The Most Wanted,0,FALSE,Unpackaged,2,Confirmed
+dedp,,Dolce & Gabbana The One EDP,Dolce & Gabbana The One EDP,0,FALSE,Unpackaged,2,Confirmed
+gac,Tub 1,Armani Code,Giorgio Armani Code,4,FALSE,Unpackaged,2,Confirmed
+dd,Box 5,Dior Dune,Dior Dune,6,FALSE,Unpackaged,2,Confirmed
+yslm,Tub 1,Myslf,Yves Saint Laurent MYSLF,9,FALSE,Unpackaged,2,Confirmed
+jpgc,Tub 2,Jean Paul Gaultier Classic,Jean Paul Gaultier Le Classique,2,FALSE,Unpackaged,2,Confirmed
+vef,Cabinet,Versace Eros Flame,Versace Eros Flame,,FALSE,Unpackaged,2,Confirmed
+dj,Cabinet,Jadore,Dior J'adore,10,FALSE,Unpackaged,2,Confirmed
+nh,Cabinet,Nishane,Nishane Hacivat,2,FALSE,Unpackaged,2,Confirmed
+bac,Cabinet,Maison Francis Kurkdjian Baccarat Rouge 540,Maison Francis Kurkdjian Baccarat Rouge 540,12,FALSE,Unpackaged,2,Confirmed
+ledp,Cabinet,Yves Saint Laurent Libre EDP,Yves Saint Laurent Libre EDP,12,FALSE,Unpackaged,2,Confirmed
+tfbp,Box 6,Tom Ford Bitter Peach,Tom Ford Bitter Peach,6,FALSE,Unpackaged,2,Confirmed
+tflc,Box 6,Tom Ford Lost Cherry,Tom Ford Lost Cherry,6,FALSE,Unpackaged,2,Confirmed
+tfndn,Box 6,Tom Ford Noir de Noir,Tom Ford Noir de Noir,3,FALSE,Unpackaged,2,Confirmed
+tfol,Box 6,Tom Ford Ombre Leather,Tom Ford Ombre Leather,7,FALSE,Unpackaged,2,Confirmed
+gamw,Box 6,Giorgio Armani My Way,Giorgio Armani My Way,4,FALSE,Unpackaged,2,Confirmed
+vyd,Box 6,Yellow Dream,Valentino Yellow Dream,3,FALSE,Unpackaged,2,Confirmed
+gli,Box 6,L'Interdit Givenchy,Givenchy L'Interdit,2,FALSE,Unpackaged,2,Confirmed
+lvon,Cabinet,Louis Vuitton Ombre Nomade,Louis Vuitton Ombre Nomade,24,FALSE,Unpackaged,2,Confirmed
+cgedp,Tub 1,chanel gabrielle edp,5,6,FALSE,Unpackaged,2,Confirmed
+bsjn, ,bvlagri splendida jasmin noir,bvlagri splendida jasmin noir,0,FALSE,Unpackaged,2,Confirmed
+ccn,Tub 1,chanel coco noir edp,chanel coco noir edp,3,FALSE,Unpackaged,2,Confirmed
+ccedp, ,chanel coco edp,chanel coco edp,0,FALSE,Unpackaged,2,Confirmed
+ccm,Cabinet,Chanel Coco M,Chanel Coco Mademoiselle,24,FALSE,Unpackaged,2,Confirmed
+dse,Cabinet,Dior Sauvage elixir,Dior Sauvage elixir,34,FALSE,Unpackaged,2,Confirmed
+ ,Tub 2,Polo Track Size M,Ralph Lauren Polo Track (Size M),2,FALSE,Unpackaged,2,Confirmed
+ , , , , , , , , 
+vdt,Tub 2,versace dylan turqoise,versace dylan turqoise,0,FALSE,Unpackaged,2,Confirmed
+ , , , , , , , , 
+jpgum, ,Jean Paul Gaultier Ultra Male,Jean Paul Gaultier Ultra Male,7,FALSE,Unpackaged,2,Confirmed
+ , ,North Face Side Medium,North Face Side Medium,0,FALSE,Unpackaged,2,Confirmed
+,,, ,,,,,
+,,,,,,,,
+,,,,,,,,
+,,,,,,,,
+ysln,Cabinet,YSL La Nuit,YSL La Nuit,7,FALSE,Unpackaged,99,Confirmed
+val,Cabinet,Valentino,Valentino EDP,23,FALSE,Unpackaged,99,Confirmed
+bdcedp,Cabinet,Bleu de Chanel EDT,Bleu de Chanel EDT,2,FALSE,Unpackaged,99,Confirmed
+bdcedt,Cabinet,Bleu de Chanel EDP,Bleu de Chanel EDP,25,FALSE,Unpackaged,99,Confirmed
+par,Cabinet,Chanel Paris,Chanel No 5 100ml,16,FALSE,Unpackaged,99,Confirmed
+int,Cabinet,Intensly,Intensly,16,FALSE,Unpackaged,99,Confirmed
+omedt,Cabinet,Paco Rabanne 1 Million,Paco Rabanne 1 Million EDT,16,FALSE,Unpackaged,99,Confirmed
+lvi,Cabinet,LV Imagination,Louis Vuitton Imagination,18,FALSE,Unpackaged,99,Confirmed
+lvc,Cabinet,LV City of Stars,Louis Vuitton City of Stars,19,FALSE,Unpackaged,99,Confirmed
+pp,Cabinet,Prada Paradox,Prada Paradoxe,6,FALSE,Unpackaged,99,Confirmed
+par,Cabinet,Chanel Paris 50ml,Chanel No 5 50ml,5,FALSE,Unpackaged,99,Confirmed
