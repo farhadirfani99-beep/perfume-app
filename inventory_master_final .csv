@@ -2,7 +2,6 @@ SKU,Location,As Entered,Standardized Full Name,Qty,Needs Confirmation,Stock Type
 vef,Box 3,Eros Flame,Versace Eros Flame,3,FALSE,Packaged,1,Confirmed
 int,Box 3,Intensly,Intensly,4,FALSE,Packaged,1,Confirmed
 cav,Box 1,Creed Aventus,Creed Aventus,8,FALSE,Packaged,1,Confirmed
- , , , , , , , , 
 par,Box 1,Chanel Paris,Chanel No 5,5,FALSE,Packaged,1,Confirmed
 ccm,Box 2,Coco M,Chanel Coco Mademoiselle,0,FALSE,Packaged,1,Confirmed
 yslm,Box 2,Myself,YSL Myslf,5,FALSE,Packaged,1,Confirmed
@@ -23,7 +22,6 @@ omedt,Box 2,1 Million,Paco Rabanne 1 Million EDT,0,FALSE,Packaged,1,Confirmed
 dhi,Box 2,Dior Homme,Dior Homme,2,FALSE,Packaged,1,Confirmed
 mcb,Box 1,mancera cederat boise edp,mancera cederat boise edp,2,FALSE,Packaged,1,Confirmed
 mrt,Box 1,Red Tobacco,Mancera Red Tobacco,4,FALSE,Packaged,1,Confirmed
- , , , , , , , , 
 gbp,Box 4,Bloom Perfum,Gucci Bloom Perfum,1,FALSE,Packaged,1,Confirmed
 sbe,Box 7,Spice Bomb,Viktor & Rolf Spicebomb,0,FALSE,Packaged,1,Confirmed
 ledp,Box 2,Libre EDP,YSL Libre EDP,1,FALSE,Packaged,1,Confirmed
@@ -71,15 +69,9 @@ ccedp, ,chanel coco edp,chanel coco edp,0,FALSE,Unpackaged,2,Confirmed
 ccm,Cabinet,Chanel Coco M,Chanel Coco Mademoiselle,24,FALSE,Unpackaged,2,Confirmed
 dse,Cabinet,Dior Sauvage elixir,Dior Sauvage elixir,34,FALSE,Unpackaged,2,Confirmed
  ,Tub 2,Polo Track Size M,Ralph Lauren Polo Track (Size M),2,FALSE,Unpackaged,2,Confirmed
- , , , , , , , , 
 vdt,Tub 2,versace dylan turqoise,versace dylan turqoise,0,FALSE,Unpackaged,2,Confirmed
- , , , , , , , , 
 jpgum, ,Jean Paul Gaultier Ultra Male,Jean Paul Gaultier Ultra Male,7,FALSE,Unpackaged,2,Confirmed
- , ,North Face Side Medium,North Face Side Medium,0,FALSE,Unpackaged,2,Confirmed
-,,, ,,,,,
-,,,,,,,,
-,,,,,,,,
-,,,,,,,,
+ North Face Side Medium,North Face Side Medium,0,FALSE,Unpackaged,2,Confirmed
 ysln,Cabinet,YSL La Nuit,YSL La Nuit,7,FALSE,Unpackaged,99,Confirmed
 val,Cabinet,Valentino,Valentino EDP,23,FALSE,Unpackaged,99,Confirmed
 bdcedp,Cabinet,Bleu de Chanel EDT,Bleu de Chanel EDT,2,FALSE,Unpackaged,99,Confirmed
